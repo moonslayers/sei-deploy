@@ -23,9 +23,10 @@ class VerifyWebhookSignature
 
         if (empty($payload)) {
             Log::warning('Webhook received with empty payload');
+
             return response()->json([
                 'error' => 'Empty payload',
-                'message' => 'Request body cannot be empty'
+                'message' => 'Request body cannot be empty',
             ], 400);
         }
 
@@ -38,23 +39,25 @@ class VerifyWebhookSignature
 
         if (empty($signature)) {
             Log::warning('Webhook received without signature');
+
             return response()->json([
                 'error' => 'Missing signature',
-                'message' => 'Signature is required in header X-Webhook-Signature or body'
+                'message' => 'Signature is required in header X-Webhook-Signature or body',
             ], 401);
         }
 
         try {
             $isValid = $this->cryptoService->verifySignature($payload, $signature);
 
-            if (!$isValid) {
+            if (! $isValid) {
                 Log::warning('Invalid webhook signature', [
                     'ip' => $request->ip(),
-                    'user_agent' => $request->userAgent()
+                    'user_agent' => $request->userAgent(),
                 ]);
+
                 return response()->json([
                     'error' => 'Invalid signature',
-                    'message' => 'Could not verify webhook signature'
+                    'message' => 'Could not verify webhook signature',
                 ], 401);
             }
 
@@ -62,27 +65,30 @@ class VerifyWebhookSignature
 
             if ($data === null) {
                 Log::warning('Invalid JSON payload');
+
                 return response()->json([
                     'error' => 'Invalid JSON',
-                    'message' => 'Request body must be valid JSON'
+                    'message' => 'Request body must be valid JSON',
                 ], 400);
             }
 
-            if (!isset($data['timestamp'])) {
+            if (! isset($data['timestamp'])) {
                 Log::warning('Missing timestamp in payload');
+
                 return response()->json([
                     'error' => 'Missing timestamp',
-                    'message' => 'Payload must include timestamp'
+                    'message' => 'Payload must include timestamp',
                 ], 400);
             }
 
             $timestampValid = $this->cryptoService->validateTimestamp($data['timestamp']);
 
-            if (!$timestampValid) {
+            if (! $timestampValid) {
                 Log::warning('Invalid timestamp in payload', ['timestamp' => $data['timestamp']]);
+
                 return response()->json([
                     'error' => 'Invalid timestamp',
-                    'message' => 'Timestamp is too old or too new'
+                    'message' => 'Timestamp is too old or too new',
                 ], 401);
             }
 
@@ -90,11 +96,12 @@ class VerifyWebhookSignature
 
         } catch (\Exception $e) {
             Log::error('Error verifying webhook signature', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return response()->json([
                 'error' => 'Verification error',
-                'message' => 'Failed to verify webhook signature'
+                'message' => 'Failed to verify webhook signature',
             ], 500);
         }
 

@@ -26,14 +26,15 @@ class WebhookController extends Controller
             Log::info('Webhook received: update submodule', [
                 'repository' => $repository,
                 'branch' => $branch,
-                'timestamp' => $data['timestamp']
+                'timestamp' => $data['timestamp'],
             ]);
 
             if ($repository !== 'sei-compilados') {
                 Log::warning("Invalid repository specified: {$repository}");
+
                 return response()->json([
                     'error' => 'Invalid repository',
-                    'message' => 'Only sei-compilados repository is supported'
+                    'message' => 'Only sei-compilados repository is supported',
                 ], 400);
             }
 
@@ -45,20 +46,20 @@ class WebhookController extends Controller
                 'data' => [
                     'repository' => $repository,
                     'branch' => $branch,
-                    'output' => $output
-                ]
+                    'output' => $output,
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             Log::error('Failed to update submodule', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update submodule',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -71,14 +72,15 @@ class WebhookController extends Controller
 
             Log::info('Webhook received: update deploy', [
                 'branch' => $branch,
-                'timestamp' => $data['timestamp']
+                'timestamp' => $data['timestamp'],
             ]);
 
             if ($branch !== 'main') {
                 Log::warning("Invalid branch specified: {$branch}");
+
                 return response()->json([
                     'error' => 'Invalid branch',
-                    'message' => 'Only main branch is supported'
+                    'message' => 'Only main branch is supported',
                 ], 400);
             }
 
@@ -89,7 +91,7 @@ class WebhookController extends Controller
                 $submoduleOutput = $this->gitService->updateSubmodule('sei-compilados');
             } catch (\Exception $e) {
                 Log::warning('Failed to update submodule after deploy', [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
             }
 
@@ -99,20 +101,20 @@ class WebhookController extends Controller
                 'data' => [
                     'branch' => $branch,
                     'main_pull' => $output,
-                    'submodule_update' => $submoduleOutput
-                ]
+                    'submodule_update' => $submoduleOutput,
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             Log::error('Failed to update deploy', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update deploy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -129,19 +131,19 @@ class WebhookController extends Controller
                 'data' => [
                     'current_branch' => $currentBranch,
                     'git_status' => $status,
-                    'submodule_status' => $submoduleStatus
-                ]
+                    'submodule_status' => $submoduleStatus,
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             Log::error('Failed to get status', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to get status',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

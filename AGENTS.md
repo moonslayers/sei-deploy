@@ -16,6 +16,7 @@ composer dev               # Start all services
 ### Testing
 ```bash
 php artisan test
+./vendor/bin/pint --test
 ```
 
 ### Linting & Database

@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class CryptoService
 {
     private ?string $publicKey = null;
+
     private int $timestampWindow;
 
     public function __construct()
@@ -18,7 +19,7 @@ class CryptoService
 
     public function verifySignature(string $payload, string $signature): bool
     {
-        if (!$this->publicKey) {
+        if (! $this->publicKey) {
             throw new Exception('Public key not configured');
         }
 
@@ -33,6 +34,7 @@ class CryptoService
 
         if ($publicKeyResource === false) {
             Log::error('Failed to load public key', ['error' => openssl_error_string()]);
+
             return false;
         }
 
