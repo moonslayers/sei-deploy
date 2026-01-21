@@ -4,12 +4,10 @@ on:
   push:
     branches:
       - main
-      - master
-      - develop
   workflow_dispatch:
 
 env:
-  SEI_SERVER_URL: https://sei-apps.bajacalifornia.gob.mx/SEI
+  SEI_SERVER_URL: https://sei-apps.bajacalifornia.gob.mx/sei
 
 jobs:
   deploy:
