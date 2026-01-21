@@ -1,0 +1,278 @@
+# Webhook Documentation for sei-deploy
+
+This document explains how to configure and use the webhook API for deploying updates to sei-deploy and its submodules.
+
+## Overview
+
+The sei-deploy server provides two webhook endpoints:
+1. **POST /api/webhook/submodule** - Updates the sei-compilados submodule
+2. **POST /api/webhook/deploy** - Pulls updates from the main repository and updates submodules
+
+All webhooks are secured using RSA signatures to ensure authenticity.
+
+## Security: RSA Signature
+
+Each webhook request must include a digital signature created with the private RSA key.
+
+### Payload Format
+
+```json
+{
+  "timestamp": 1737350000,
+  "action": "update_submodule" | "update_deploy",
+  "repository": "sei-compilados" | "sei-deploy",
+  "branch": "main",
+  "signature": "<signature_base64>"
+}
+```
+
+### Key Fields
+- `timestamp`: Unix timestamp (must be within ±5 minutes of server time)
+- `action`: Type of action being performed
+- `repository`: Repository name (only "sei-compilados" for submodule endpoint)
+- `branch`: Git branch (only "main" is supported)
+- `signature`: Base64-encoded RSA-SHA256 signature of the entire payload
+
+### Signature Algorithm
+
+The signature must be created using **RSA-SHA256**:
+1. Encode the entire JSON payload as a UTF-8 string
+2. Sign the string using the private key with SHA-256 hashing
+3. Encode the signature in Base64
+
+### Header Options
+
+The signature can be provided in two ways:
+1. **Header**: `X-Webhook-Signature: <signature_base64>` (recommended)
+2. **Body**: Include `signature` field in the JSON payload
+
+## Generating RSA Keys
+
+### Generate Key Pair (on your machine)
+
+```bash
+# Generate private key
+openssl genrsa -out webhook_private.pem 2048
+
+# Generate public key
+openssl rsa -in webhook_private.pem -pubout -out webhook_public.pem
+
+# Encode public key in Base64 for .env
+base64 -i webhook_public.pem | tr -d '\n'
+```
+
+### Configure Server
+
+Add the Base64-encoded public key to your `.env` file:
+
+```env
+PUBLIC_KEY=<your_base64_encoded_public_key>
+```
+
+### Configure GitHub Actions
+
+Add the **private key** to your repository secrets:
+1. Go to repository Settings > Secrets and variables > Actions
+2. Add a new secret named `WEBHOOK_PRIVATE_KEY`
+3. Paste the content of `webhook_private.pem`
+
+**NEVER** commit the private key to your repository!
+
+## GitHub Actions Example
+
+### For sei-compilados Updates
+
+```yaml
+name: Trigger sei-deploy Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dist/**'
+
+jobs:
+  trigger-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate signature
+        id: generate-signature
+        run: |
+          TIMESTAMP=$(date +%s)
+          PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
+          
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}") -binary | base64)
+          
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+
+      - name: Send webhook
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.WEBHOOK_URL }}/api/webhook/submodule
+          method: POST
+          contentType: application/json
+          data: ${{ steps.generate-signature.outputs.payload }}
+          customHeaders: '{
+            "X-Webhook-Signature": "${{ steps.generate-signature.outputs.signature }}"
+          }'
+```
+
+### Alternative Using curl
+
+```yaml
+name: Trigger sei-deploy Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dist/**'
+
+jobs:
+  trigger-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup private key
+        run: |
+          echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" > /tmp/private_key.pem
+
+      - name: Generate and send webhook
+        run: |
+          TIMESTAMP=$(date +%s)
+          PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
+          
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign /tmp/private_key.pem -binary | base64)
+          
+          curl -X POST "${{ secrets.WEBHOOK_URL }}/api/webhook/submodule" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: $SIGNATURE" \
+            -d "$PAYLOAD"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/private_key.pem
+```
+
+## API Endpoints
+
+### POST /api/webhook/submodule
+
+Updates the sei-compilados submodule.
+
+**Request:**
+```json
+{
+  "timestamp": 1737350000,
+  "action": "update_submodule",
+  "repository": "sei-compilados",
+  "branch": "main"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "status": "success",
+  "message": "Submodule updated successfully",
+  "data": {
+    "repository": "sei-compilados",
+    "branch": "main",
+    "output": ["git output lines..."]
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "status": "error",
+  "message": "Failed to update submodule",
+  "error": "error details..."
+}
+```
+
+### POST /api/webhook/deploy
+
+Pulls updates from the main repository and updates all submodules.
+
+**Request:**
+```json
+{
+  "timestamp": 1737350000,
+  "action": "update_deploy",
+  "repository": "sei-deploy",
+  "branch": "main"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "status": "success",
+  "message": "Deploy updated successfully",
+  "data": {
+    "branch": "main",
+    "main_pull": ["git output lines..."],
+    "submodule_update": ["submodule update lines..."]
+  }
+}
+```
+
+### GET /api/status
+
+Returns the current status of the repository and submodules.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "current_branch": "main",
+    "git_status": ["status lines..."],
+    "submodule_status": ["submodule status lines..."]
+  }
+}
+```
+
+## Error Codes
+
+- **400 Bad Request**: Invalid payload, missing fields, or invalid JSON
+- **401 Unauthorized**: Invalid signature or timestamp
+- **500 Internal Server Error**: Server error during execution
+
+## Testing the Webhook
+
+### Using curl
+
+```bash
+# Generate payload and signature
+TIMESTAMP=$(date +%s)
+PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
+SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign webhook_private.pem -binary | base64)
+
+# Send request
+curl -X POST "http://localhost:8000/api/webhook/submodule" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: $SIGNATURE" \
+  -d "$PAYLOAD"
+```
+
+## Troubleshooting
+
+### Invalid Signature
+- Verify the public key is correctly configured in `.env`
+- Ensure the private key matches the public key
+- Check that the signature is Base64-encoded
+
+### Timestamp Error
+- Verify server time is synchronized
+- Ensure timestamp is within ±5 minutes of current time
+
+### Git Authentication Error
+- Check `GITHUB_USER` and `GITHUB_TOKEN` in `.env`
+- Ensure the token has appropriate repository permissions
+- Verify git credential helper is configured correctly
