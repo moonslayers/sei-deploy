@@ -2,14 +2,15 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class GitService
 {
     private string $githubUser;
+
     private string $githubToken;
+
     private string $baseDir;
 
     public function __construct()
@@ -19,18 +20,7 @@ class GitService
         $this->baseDir = base_path();
     }
 
-    private function configureGitCredentials(): void
-    {
-        if (empty($this->githubUser) || empty($this->githubToken)) {
-            throw new Exception('GitHub credentials not configured');
-        }
-
-        $this->executeGitCommand("config credential.helper store");
-        $this->executeGitCommand("config --global credential.helper store");
-        $this->executeGitCommand("config --global url.\"https://{$this->githubUser}:{$this->githubToken}@github.com/\".insteadOf \"https://github.com/\"");
-    }
-
-    private function executeGitCommand(string $command, string $path = null): array
+    private function executeGitCommand(string $command, ?string $path = null): array
     {
         $workingDir = $path ?? $this->baseDir;
         $fullCommand = "cd {$workingDir} && {$command} 2>&1";
@@ -39,10 +29,10 @@ class GitService
 
         if ($returnCode !== 0) {
             $errorOutput = implode("\n", $output);
-            Log::error("Git command failed", [
+            Log::error('Git command failed', [
                 'command' => $command,
                 'output' => $errorOutput,
-                'return_code' => $returnCode
+                'return_code' => $returnCode,
             ]);
             throw new Exception("Git command failed: {$errorOutput}");
         }
@@ -54,27 +44,54 @@ class GitService
     {
         Log::info('Starting git pull for main repository');
 
-        $this->configureGitCredentials();
-
-        $output = $this->executeGitCommand('git pull origin main');
+        $repoUrl = $this->getRepoUrlWithCredentials();
+        $output = $this->executeGitCommand("git pull {$repoUrl} main");
 
         Log::info('Git pull completed successfully', ['output' => $output]);
 
         return $output;
     }
 
+    private function getRepoUrlWithCredentials(): string
+    {
+        if (empty($this->githubUser) || empty($this->githubToken)) {
+            throw new Exception('GitHub credentials not configured');
+        }
+
+        $repo = env('GITHUB_REPO_MAIN', '');
+        if (empty($repo)) {
+            throw new Exception('GITHUB_REPO_MAIN not configured');
+        }
+
+        return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
+    }
+
     public function updateSubmodule(string $submodulePath = 'sei-compilados'): array
     {
         Log::info("Starting submodule update for {$submodulePath}");
 
-        $this->configureGitCredentials();
-
         $this->executeGitCommand('git submodule sync');
-        $output = $this->executeGitCommand('git submodule update --init --recursive --remote');
+
+        $submoduleUrl = $this->getSubmoduleUrlWithCredentials($submodulePath);
+        $output = $this->executeGitCommand("git -C {$submodulePath} pull {$submoduleUrl} main");
 
         Log::info('Submodule update completed successfully', ['output' => $output]);
 
         return $output;
+    }
+
+    private function getSubmoduleUrlWithCredentials(string $submodulePath): string
+    {
+        if (empty($this->githubUser) || empty($this->githubToken)) {
+            throw new Exception('GitHub credentials not configured');
+        }
+
+        $repo = env('GITHUB_REPO_SUBMODULE', '');
+        if (empty($repo)) {
+            throw new Exception('GITHUB_REPO_SUBMODULE not configured');
+        }
+
+        return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
     public function getStatus(): array
