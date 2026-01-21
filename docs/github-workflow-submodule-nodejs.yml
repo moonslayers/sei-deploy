@@ -1,0 +1,87 @@
+name: Update Submodule (Node.js)
+
+# Ejemplo para proyectos Node.js que son submódulos
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DEPLOY_SERVER_URL: http://tu-servicio.com
+
+jobs:
+  update_submodule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (opcional)
+        run: npm test
+
+      - name: Build (opcional)
+        run: npm run build
+
+      - name: Sign and Send Webhook
+        env:
+          PRIVATE_KEY: ${{ secrets.WEBHOOK_PRIVATE_KEY }}
+        run: |
+          # Crear script temporal para firmar
+          cat > sign-and-send.mjs << 'EOF'
+          import crypto from 'crypto';
+          import https from 'https';
+
+          const privateKey = Buffer.from(process.env.PRIVATE_KEY, 'base64');
+          const data = {
+            repository: 'sei-compilados',
+            branch: 'main',
+            timestamp: Math.floor(Date.now() / 1000)
+          };
+
+          const payload = JSON.stringify(data);
+          const signature = crypto.sign(
+            'sha256',
+            Buffer.from(payload),
+            { key: privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }
+          ).toString('base64');
+
+          const postData = Buffer.from(payload);
+
+          const options = {
+            hostname: new URL(process.env.DEPLOY_SERVER_URL).hostname,
+            port: 443,
+            path: '/api/webhook/submodule',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': postData.length,
+              'X-Webhook-Signature': signature
+            }
+          };
+
+          const req = https.request(options, (res) => {
+            console.log(`Status: ${res.statusCode}`);
+            res.on('data', (d) => process.stdout.write(d));
+          });
+
+          req.on('error', (e) => {
+            console.error(e);
+            process.exit(1);
+          });
+
+          req.write(postData);
+          req.end();
+          EOF
+
+          node sign-and-send.mjs

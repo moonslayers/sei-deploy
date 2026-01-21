@@ -1,0 +1,92 @@
+name: Update Submodule
+
+# Esta es una plantilla para proyectos que son submódulos
+# y necesitan actualizar solo el submódulo en el servidor
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  # URL del servidor de despliegue
+  DEPLOY_SERVER_URL: http://tu-servicio.com
+
+jobs:
+  update_submodule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl
+
+      - name: Run Tests (opcional)
+        run: |
+          # Ejecutar tus tests aquí
+          # Ejemplo: composer test
+          echo "Running tests..."
+
+      - name: Build/Compile (opcional)
+        run: |
+          # Si tu submódulo requiere compilación
+          # Ejemplo: npm run build o make build
+          echo "Building artifacts..."
+
+      - name: Prepare Webhook Payload
+        id: prepare_payload
+        run: |
+          # Crear payload para actualizar submódulo
+          TIMESTAMP=$(date +%s)
+          cat > payload.json << EOF
+          {
+            "repository": "sei-compilados",
+            "branch": "main",
+            "timestamp": ${TIMESTAMP}
+          }
+          EOF
+
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+
+      - name: Sign Payload with RSA
+        id: sign_payload
+        run: |
+          # Decodificar llave privada del secret
+          echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" > private_key.pem
+
+          # Leer el payload
+          PAYLOAD=$(cat payload.json)
+
+          # Firmar el payload (RSA + SHA256)
+          SIGNATURE=$(php -r "
+            \$privateKey = file_get_contents('private_key.pem');
+            \$payload = '${PAYLOAD}';
+            openssl_sign(\$payload, \$signature, \$privateKey, OPENSSL_ALGO_SHA256);
+            echo base64_encode(\$signature);
+          ")
+
+          echo "signature=${SIGNATURE}" >> $GITHUB_OUTPUT
+          rm private_key.pem
+
+      - name: Send Webhook to Update Submodule
+        run: |
+          PAYLOAD=$(cat payload.json)
+          SIGNATURE="${{ steps.sign_payload.outputs.signature }}"
+
+          curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/submodule" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: ${SIGNATURE}" \
+            -d "${PAYLOAD}" \
+            --silent --show-error --fail
+
+      - name: Verify Submodule Status
+        run: |
+          # Verificar estado después de la actualización
+          RESPONSE=$(curl "${{ env.DEPLOY_SERVER_URL }}/api/status" --silent)
+          echo "Status: ${RESPONSE}"

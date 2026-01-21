@@ -1,0 +1,90 @@
+name: Deploy to SEI Server
+
+# Esta es una plantilla de GitHub Actions para proyectos que necesitan
+# disparar despliegues automáticos usando las APIs de SEI Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  # URL del servidor de despliegue (cambiar según tu configuración)
+  DEPLOY_SERVER_URL: http://tu-servicio.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Necesario para git pull en el servidor
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl
+
+      - name: Prepare Webhook Payload
+        id: prepare_payload
+        run: |
+          # Crear payload con timestamp actual
+          TIMESTAMP=$(date +%s)
+          cat > payload.json << EOF
+          {
+            "branch": "main",
+            "timestamp": ${TIMESTAMP}
+          }
+          EOF
+
+          # Guardar timestamp para pasos posteriores
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+
+      - name: Sign Payload with RSA
+        id: sign_payload
+        run: |
+          # Decodificar llave privada del secret
+          echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" > private_key.pem
+
+          # Leer el payload
+          PAYLOAD=$(cat payload.json)
+
+          # Firmar el payload usando PHP (RSA + SHA256)
+          SIGNATURE=$(php -r "
+            \$privateKey = file_get_contents('private_key.pem');
+            \$payload = '${PAYLOAD}';
+            openssl_sign(\$payload, \$signature, \$privateKey, OPENSSL_ALGO_SHA256);
+            echo base64_encode(\$signature);
+          ")
+
+          # Guardar la firma
+          echo "signature=${SIGNATURE}" >> $GITHUB_OUTPUT
+
+          # Limpiar llave privada por seguridad
+          rm private_key.pem
+
+      - name: Send Webhook to Deploy Server
+        run: |
+          # Leer payload y firma
+          PAYLOAD=$(cat payload.json)
+          SIGNATURE="${{ steps.sign_payload.outputs.signature }}"
+
+          # Enviar request al servidor
+          curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/deploy" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: ${SIGNATURE}" \
+            -d "${PAYLOAD}" \
+            --silent --show-error --fail
+
+      - name: Verify Deployment Status
+        run: |
+          # Verificar el estado del despliegue
+          RESPONSE=$(curl "${{ env.DEPLOY_SERVER_URL }}/api/status" --silent)
+
+          # Parsear respuesta (opcional, depende de tu necesidad)
+          echo "Deployment status: ${RESPONSE}"

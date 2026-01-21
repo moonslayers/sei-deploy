@@ -1,0 +1,91 @@
+name: Update Submodule (Python)
+
+# Ejemplo para proyectos Python que son submódulos
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DEPLOY_SERVER_URL: http://tu-servicio.com
+
+jobs:
+  update_submodule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests (opcional)
+        run: pytest
+
+      - name: Build (opcional)
+        run: python setup.py build
+
+      - name: Sign and Send Webhook
+        env:
+          DEPLOY_SERVER_URL: ${{ env.DEPLOY_SERVER_URL }}
+          PRIVATE_KEY: ${{ secrets.WEBHOOK_PRIVATE_KEY }}
+        run: |
+          python3 << 'EOF'
+          import base64
+          import json
+          import time
+          import urllib.request
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+
+          # Decodificar llave privada
+          private_key_data = base64.b64decode(base64.b64decode(process.env.PRIVATE_KEY))
+          private_key = serialization.load_pem_private_key(
+              private_key_data,
+              password=None
+          )
+
+          # Crear payload
+          data = {
+              'repository': 'sei-compilados',
+              'branch': 'main',
+              'timestamp': int(time.time())
+          }
+
+          payload = json.dumps(data, separators=(',', ':'))
+
+          # Firmar payload
+          signature = private_key.sign(
+              payload.encode(),
+              padding.PKCS1v15(),
+              hashes.SHA256()
+          )
+          signature_b64 = base64.b64encode(signature).decode()
+
+          # Enviar request
+          req = urllib.request.Request(
+              f"{process.env.DEPLOY_SERVER_URL}/api/webhook/submodule",
+              data=payload.encode(),
+              headers={
+                  'Content-Type': 'application/json',
+                  'X-Webhook-Signature': signature_b64
+              }
+          )
+
+          try:
+              with urllib.request.urlopen(req) as response:
+                  print(f"Status: {response.status}")
+                  print(response.read().decode())
+          except urllib.error.HTTPError as e:
+              print(f"Error: {e.code}")
+              print(e.read().decode())
+              exit(1)
+          EOF
