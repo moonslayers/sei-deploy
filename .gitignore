@@ -23,5 +23,4 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 laravel.sqlite
-/tests/keys/private_test.pem
 webhook_*.pem
