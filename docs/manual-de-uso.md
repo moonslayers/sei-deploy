@@ -21,14 +21,21 @@ Las plantillas de workflows vienen en diferentes variantes según el lenguaje de
 
 ### 1. POST `/api/webhook/submodule`
 
-Actualiza el submódulo `sei-compilados` del repositorio.
+Actualiza el submódulo `sei-compilados` del repositorio y opcionalmente despliega archivos de frontend a `/var/www/{project}`.
 
 **Casos de uso:**
 - Después de compilar cambios en el repositorio `sei-compilados`
 - Cuando necesitas actualizar solo el submódulo sin afectar el repositorio principal
 - En proyectos donde el submódulo contiene código compilado o artefactos
+- **Despliegue automático de frontend**: Después del git pull, si se especifica el parámetro `project`, los archivos se copian automáticamente de `sei-compilados/{project}` a `/var/www/{project}`
 
-**Request:**
+**Nota importante sobre el despliegue:**
+- El parámetro `project` es **opcional**
+- Si se especifica: después de un git pull exitoso, el contenido de `/var/www/{project}/*` se borra y se reemplaza con `sei-compilados/{project}/*`
+- El directorio `/var/www/{project}` **DEBE existir previamente** - el sistema NO lo creará
+- Ejemplos de proyectos: `pmr-frontend`, `sagem-frontend`, `sidi-frontend`
+
+**Request (sin despliegue):**
 ```bash
 curl -X POST http://tu-servicio.com/api/webhook/submodule \
   -H "Content-Type: application/json" \
@@ -40,7 +47,20 @@ curl -X POST http://tu-servicio.com/api/webhook/submodule \
   }'
 ```
 
-**Response exitoso (200):**
+**Request (con despliegue automático):**
+```bash
+curl -X POST http://tu-servicio.com/api/webhook/submodule \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: <firma_base64>" \
+  -d '{
+    "repository": "sei-compilados",
+    "branch": "main",
+    "project": "pmr-frontend",
+    "timestamp": 1737465600
+  }'
+```
+
+**Response exitoso (200) - Sin despliegue:**
 ```json
 {
   "status": "success",
@@ -49,6 +69,26 @@ curl -X POST http://tu-servicio.com/api/webhook/submodule \
     "repository": "sei-compilados",
     "branch": "main",
     "output": ["Submodule updated successfully"]
+  }
+}
+```
+
+**Response exitoso (200) - Con despliegue:**
+```json
+{
+  "status": "success",
+  "message": "Submodule updated and deployed successfully",
+  "data": {
+    "repository": "sei-compilados",
+    "branch": "main",
+    "project": "pmr-frontend",
+    "git_output": ["Submodule updated successfully"],
+    "deploy_output": {
+      "deployment": "success",
+      "project": "pmr-frontend",
+      "source": "/path/to/sei-compilados/pmr-frontend",
+      "destination": "/var/www/pmr-frontend"
+    }
   }
 }
 ```
@@ -69,9 +109,27 @@ curl -X POST http://tu-servicio.com/api/webhook/submodule \
 }
 ```
 
+**Response error (400) - Carpeta de proyecto no encontrada:**
+```json
+{
+  "error": "Project folder not found",
+  "message": "Folder 'pmr-frontend' does not exist in sei-compilados"
+}
+```
+
+**Response error (400) - Carpeta de destino no encontrada:**
+```json
+{
+  "error": "Destination folder not found",
+  "message": "Folder 'pmr-frontend' does not exist in /var/www"
+}
+```
+
 ### 2. POST `/api/webhook/deploy`
 
 Actualiza el repositorio principal y el submódulo.
+
+**Nota importante:** Este endpoint NO incluye despliegue de frontend a `/var/www`. Para desplegar un proyecto específico después de actualizar el submódulo, usa el endpoint `/api/webhook/submodule` con el parámetro `project`.
 
 **Casos de uso:**
 - Después de hacer merge a la rama `main`
@@ -163,6 +221,8 @@ El payload debe incluir:
 | 401 | `Invalid signature` | La firma no coincide con la llave pública |
 | 401 | `Invalid timestamp` | El timestamp es muy antiguo o futuro |
 | 400 | `Invalid JSON` | El payload no es JSON válido |
+| 400 | `Project folder not found` | La carpeta de proyecto especificada no existe en `sei-compilados` |
+| 400 | `Destination folder not found` | La carpeta `/var/www/{project}` no existe en el servidor |
 
 ## Configuración del Servidor
 
@@ -196,16 +256,20 @@ Ver los archivos:
 
 1. **Desarrollador** hace push a rama `feature/xxx`
 2. **GitHub Actions** ejecuta tests y compilaciones
-3. **Si es rama `main`**: Dispara `POST /api/webhook/deploy`
+3. **Si es rama `main` del repo principal**: Dispara `POST /api/webhook/deploy`
 4. **Si solo actualiza submódulo**: Dispara `POST /api/webhook/submodule`
-5. **Servidor** actualiza el repositorio automáticamente
+5. **Si actualiza submódulo con despliegue**: Dispara `POST /api/webhook/submodule` con parámetro `project`
+   - Ejemplo: `{"repository": "sei-compilados", "branch": "main", "project": "pmr-frontend"}`
+   - El servidor actualiza el submódulo y copia archivos a `/var/www/pmr-frontend/`
+6. **Servidor** actualiza el repositorio automáticamente
 
 ### Cuándo usar cada API
 
 | API | Cuándo usarla | Qué actualiza |
 |-----|--------------|---------------|
 | `/api/webhook/deploy` | Merge a `main` del repo principal | Repositorio principal + submódulo |
-| `/api/webhook/submodule` | Cambios solo en submódulo | Solo el submódulo `sei-compilados` |
+| `/api/webhook/submodule` (sin `project`) | Cambios solo en submódulo | Solo el submódulo `sei-compilados` |
+| `/api/webhook/submodule` (con `project`) | Después de compilar frontend | Submódulo + despliegue automático a `/var/www/{project}` |
 | `/api/status` | Cualquier momento (GET) | Solo lectura del estado |
 
 ### Proyectos que Deben Hacer POST
@@ -215,7 +279,15 @@ Ver los archivos:
 
 2. **Proyecto Compilados** (submódulo)
    - Hacer POST a `/api/webhook/submodule` después de completar compilaciones
-   - Usar `/api/webhook/submodule` si hay cambios en artefactos compilados
+   - **Opción A (sin despliegue)**: Solo actualizar el submódulo
+     ```json
+     {"repository": "sei-compilados", "branch": "main"}
+     ```
+   - **Opción B (con despliegue automático)**: Actualizar submódulo y desplegar a `/var/www`
+     ```json
+     {"repository": "sei-compilados", "branch": "main", "project": "pmr-frontend"}
+     ```
+   - Ejemplos de proyectos: `pmr-frontend`, `sagem-frontend`, `sidi-frontend`
 
 3. **Proyectos Relacionados**
    - Solo si necesitan actualizar el despliegue de forma coordinada

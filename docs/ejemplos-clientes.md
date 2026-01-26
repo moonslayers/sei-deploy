@@ -34,13 +34,17 @@ class SeiDeployClient
         return base64_encode($signature);
     }
 
-    public function updateSubmodule(string $repository = 'sei-compilados', string $branch = 'main'): array
+    public function updateSubmodule(string $repository = 'sei-compilados', string $branch = 'main', ?string $project = null): array
     {
         $data = [
             'repository' => $repository,
             'branch' => $branch,
             'timestamp' => time(),
         ];
+
+        if ($project !== null) {
+            $data['project'] = $project;
+        }
 
         $payload = json_encode($data, JSON_UNESCAPED_SLASHES);
         $signature = $this->signPayload($data);
@@ -152,7 +156,7 @@ class SeiDeployService
         return base64_encode($signature);
     }
 
-    public function updateSubmodule(string $repository = 'sei-compilados', string $branch = 'main'): array
+    public function updateSubmodule(string $repository = 'sei-compilados', string $branch = 'main', ?string $project = null): array
     {
         $data = [
             'repository' => $repository,
@@ -160,11 +164,15 @@ class SeiDeployService
             'timestamp' => time(),
         ];
 
+        if ($project !== null) {
+            $data['project'] = $project;
+        }
+
         $payload = json_encode($data, JSON_UNESCAPED_SLASHES);
         $signature = $this->signPayload($data);
 
         $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
+            'Content-Type: application/json',
             'X-Webhook-Signature' => $signature,
         ])->post($this->serverUrl . '/api/webhook/submodule', $data);
 
@@ -246,12 +254,15 @@ class SeiDeployClient:
         )
         return base64.b64encode(signature).decode()
 
-    def update_submodule(self, repository='sei-compilados', branch='main'):
+    def update_submodule(self, repository='sei-compilados', branch='main', project=None):
         data = {
             'repository': repository,
             'branch': branch,
             'timestamp': int(time.time())
         }
+
+        if project is not None:
+            data['project'] = project
 
         payload = json.dumps(data, separators=(',', ':'))
         signature = self._sign_payload(data)
@@ -429,12 +440,16 @@ class SeiDeployClient {
         });
     }
 
-    async updateSubmodule(repository = 'sei-compilados', branch = 'main') {
+    async updateSubmodule(repository = 'sei-compilados', branch = 'main', project = null) {
         const data = {
             repository,
             branch,
             timestamp: Math.floor(Date.now() / 1000)
         };
+
+        if (project !== null) {
+            data.project = project;
+        }
 
         return this.makeRequest('/api/webhook/submodule', data);
     }
@@ -508,12 +523,16 @@ class SeiDeployClient {
         return signature.toString('base64');
     }
 
-    async updateSubmodule(repository = 'sei-compilados', branch = 'main') {
+    async updateSubmodule(repository = 'sei-compilados', branch = 'main', project = null) {
         const data = {
             repository,
             branch,
             timestamp: Math.floor(Date.now() / 1000)
         };
+
+        if (project !== null) {
+            data.project = project;
+        }
 
         const payload = JSON.stringify(data);
         const signature = this.signPayload(data);
@@ -689,11 +708,15 @@ func (c *SeiDeployClient) makeRequest(endpoint string, data interface{}) (*http.
 	return c.Client.Do(req)
 }
 
-func (c *SeiDeployClient) UpdateSubmodule(repository, branch string) (map[string]interface{}, error) {
+func (c *SeiDeployClient) UpdateSubmodule(repository, branch string, project string) (map[string]interface{}, error) {
 	data := map[string]interface{}{
 		"repository": repository,
 		"branch":     branch,
 		"timestamp":  time.Now().Unix(),
+	}
+
+	if project != "" {
+		data["project"] = project
 	}
 
 	resp, err := c.makeRequest("/api/webhook/submodule", data)
@@ -790,12 +813,16 @@ class SeiDeployClient
     Base64.strict_encode64(signature)
   end
 
-  def update_submodule(repository: 'sei-compilados', branch: 'main')
+  def update_submodule(repository: 'sei-compilados', branch: 'main', project: nil)
     data = {
       repository: repository,
       branch: branch,
       timestamp: Time.now.to_i
     }
+
+    if project
+      data[:project] = project
+    end
 
     make_request('/api/webhook/submodule', data)
   end
@@ -859,6 +886,28 @@ puts result
 ```
 
 ## Notas Importantes
+
+### Parámetro `project` para Despliegue Automático
+
+El parámetro opcional `project` en el endpoint `/api/webhook/submodule` habilita el despliegue automático de archivos de frontend:
+
+**Comportamiento:**
+- Si se especifica: después de un git pull exitoso, el sistema borra el contenido de `/var/www/{project}/*` y lo reemplaza con `sei-compilados/{project}/*`
+- Si no se especifica: solo se actualiza el submódulo, sin despliegue
+
+**Requisitos en el servidor:**
+- La carpeta `sei-compilados/{project}` debe existir antes del despliegue
+- La carpeta `/var/www/{project}` debe existir antes del despliegue
+- **El sistema NO crea carpetas automáticamente** - ambas deben existir previamente
+
+**Ejemplos de proyectos:**
+- `pmr-frontend`
+- `sagem-frontend`
+- `sidi-frontend`
+
+**Errores comunes:**
+- 400 Bad Request: "Project folder not found" - La carpeta no existe en `sei-compilados`
+- 400 Bad Request: "Destination folder not found" - La carpeta no existe en `/var/www`
 
 ### Encoding del Payload
 
