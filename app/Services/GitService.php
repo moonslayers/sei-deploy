@@ -114,4 +114,95 @@ class GitService
 
         return $output;
     }
+
+    public function deployToFrontend(string $projectFolder): array
+    {
+        Log::info("Starting deployment for {$projectFolder}");
+
+        $sourcePath = base_path("sei-compilados/{$projectFolder}");
+        $destPath = "/var/www/{$projectFolder}";
+
+        if (! is_dir($sourcePath)) {
+            Log::error('Source folder does not exist', [
+                'project' => $projectFolder,
+                'path' => $sourcePath,
+            ]);
+            throw new Exception("Source folder {$sourcePath} does not exist");
+        }
+
+        if (! is_dir($destPath)) {
+            Log::error('Destination folder does not exist', [
+                'project' => $projectFolder,
+                'path' => $destPath,
+            ]);
+            throw new Exception("Destination folder {$destPath} does not exist");
+        }
+
+        $this->deleteDirectoryContents($destPath);
+        $this->copyDirectory($sourcePath, $destPath);
+
+        Log::info("Deployment completed for {$projectFolder}");
+
+        return [
+            'deployment' => 'success',
+            'project' => $projectFolder,
+            'source' => $sourcePath,
+            'destination' => $destPath,
+        ];
+    }
+
+    private function deleteDirectoryContents(string $path): void
+    {
+        Log::info("Deleting contents from {$path}");
+
+        $files = glob("{$path}/*");
+        if ($files === false) {
+            $files = [];
+        }
+
+        foreach ($files as $file) {
+            if (is_dir($file)) {
+                $this->deleteDirectoryRecursive($file);
+            } else {
+                unlink($file);
+            }
+        }
+    }
+
+    private function deleteDirectoryRecursive(string $path): void
+    {
+        $files = glob("{$path}/*");
+        if ($files === false) {
+            $files = [];
+        }
+
+        foreach ($files as $file) {
+            if (is_dir($file)) {
+                $this->deleteDirectoryRecursive($file);
+            } else {
+                unlink($file);
+            }
+        }
+
+        rmdir($path);
+    }
+
+    private function copyDirectory(string $source, string $destination): void
+    {
+        Log::info("Copying files from {$source} to {$destination}");
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $dest = $destination.DIRECTORY_SEPARATOR.$iterator->getSubPathName();
+            if ($item->isDir()) {
+                mkdir($dest, 0755, true);
+            } else {
+                copy($item, $dest);
+            }
+        }
+    }
 }
