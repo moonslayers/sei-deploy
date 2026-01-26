@@ -22,7 +22,7 @@ Each webhook request must include a digital signature created with the private R
   "action": "update_submodule" | "update_deploy",
   "repository": "sei-compilados" | "sei-deploy",
   "branch": "main",
-  "signature": "<signature_base64>"
+  "project": "pmr-frontend" | null
 }
 ```
 
@@ -31,6 +31,7 @@ Each webhook request must include a digital signature created with the private R
 - `action`: Type of action being performed
 - `repository`: Repository name (only "sei-compilados" for submodule endpoint)
 - `branch`: Git branch (only "main" is supported)
+- `project`: **(Optional)** Project folder name in sei-compilados to deploy to `/var/www/{project}`. If provided, after a successful git pull, the frontend files will be automatically deployed to `/var/www/{project}`. Example: "pmr-frontend", "sagem-frontend", "sidi-frontend".
 - `signature`: Base64-encoded RSA-SHA256 signature of the entire payload
 
 ### Signature Algorithm
@@ -80,7 +81,7 @@ Add the **private key** to your repository secrets:
 
 ## GitHub Actions Example
 
-### For sei-compilados Updates
+### For sei-compilados Updates (Without Deployment)
 
 ```yaml
 name: Trigger sei-deploy Update
@@ -101,9 +102,49 @@ jobs:
         run: |
           TIMESTAMP=$(date +%s)
           PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
-          
+
           SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}") -binary | base64)
-          
+
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+
+      - name: Send webhook
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.WEBHOOK_URL }}/api/webhook/submodule
+          method: POST
+          contentType: application/json
+          data: ${{ steps.generate-signature.outputs.payload }}
+          customHeaders: '{
+            "X-Webhook-Signature": "${{ steps.generate-signature.outputs.signature }}"
+          }'
+```
+
+### For sei-compilados Updates With Automatic Frontend Deployment
+
+```yaml
+name: Trigger sei-deploy Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dist/**'
+
+jobs:
+  trigger-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate signature
+        id: generate-signature
+        run: |
+          TIMESTAMP=$(date +%s)
+          PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main","project":"pmr-frontend"}'
+
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}") -binary | base64)
+
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
           echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
@@ -161,15 +202,84 @@ jobs:
 
 ### POST /api/webhook/submodule
 
-Updates the sei-compilados submodule.
+Updates sei-compilados submodule and optionally deploys frontend files to `/var/www/{project}`.
 
-**Request:**
+**Request (Without Deployment):**
 ```json
 {
   "timestamp": 1737350000,
   "action": "update_submodule",
   "repository": "sei-compilados",
   "branch": "main"
+}
+```
+
+**Request (With Deployment):**
+```json
+{
+  "timestamp": 1737350000,
+  "action": "update_submodule",
+  "repository": "sei-compilados",
+  "branch": "main",
+  "project": "pmr-frontend"
+}
+```
+
+**Response (Success - Without Deployment):**
+```json
+{
+  "status": "success",
+  "message": "Submodule updated successfully",
+  "data": {
+    "repository": "sei-compilados",
+    "branch": "main",
+    "output": ["git output lines..."]
+  }
+}
+```
+
+**Response (Success - With Deployment):**
+```json
+{
+  "status": "success",
+  "message": "Submodule updated and deployed successfully",
+  "data": {
+    "repository": "sei-compilados",
+    "branch": "main",
+    "project": "pmr-frontend",
+    "git_output": ["git output lines..."],
+    "deploy_output": {
+      "deployment": "success",
+      "project": "pmr-frontend",
+      "source": "/path/to/sei-compilados/pmr-frontend",
+      "destination": "/var/www/pmr-frontend"
+    }
+  }
+}
+```
+
+**Response (Error - Project Folder Not Found):**
+```json
+{
+  "error": "Project folder not found",
+  "message": "Folder 'pmr-frontend' does not exist in sei-compilados"
+}
+```
+
+**Response (Error - Destination Folder Not Found):**
+```json
+{
+  "error": "Destination folder not found",
+  "message": "Folder 'pmr-frontend' does not exist in /var/www"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "status": "error",
+  "message": "Failed to update submodule",
+  "error": "error details..."
 }
 ```
 
@@ -241,6 +351,8 @@ Returns the current status of the repository and submodules.
 ## Error Codes
 
 - **400 Bad Request**: Invalid payload, missing fields, or invalid JSON
+- **400 Bad Request**: Project folder not found in sei-compilados
+- **400 Bad Request**: Destination folder not found in /var/www
 - **401 Unauthorized**: Invalid signature or timestamp
 - **500 Internal Server Error**: Server error during execution
 
@@ -249,9 +361,22 @@ Returns the current status of the repository and submodules.
 ### Using curl
 
 ```bash
-# Generate payload and signature
+# Generate payload and signature (without deployment)
 TIMESTAMP=$(date +%s)
 PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
+SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign webhook_private.pem -binary | base64)
+
+# Send request
+curl -X POST "http://localhost:8000/api/webhook/submodule" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: $SIGNATURE" \
+  -d "$PAYLOAD"
+```
+
+```bash
+# Generate payload and signature (with deployment)
+TIMESTAMP=$(date +%s)
+PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main","project":"pmr-frontend"}'
 SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign webhook_private.pem -binary | base64)
 
 # Send request
