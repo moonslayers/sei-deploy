@@ -22,10 +22,12 @@ class WebhookController extends Controller
             $data = $request->input('webhook_data', []);
             $repository = $data['repository'] ?? 'sei-compilados';
             $branch = $data['branch'] ?? 'main';
+            $project = $data['project'] ?? null;
 
             Log::info('Webhook received: update submodule', [
                 'repository' => $repository,
                 'branch' => $branch,
+                'project' => $project,
                 'timestamp' => $data['timestamp'],
             ]);
 
@@ -38,7 +40,38 @@ class WebhookController extends Controller
                 ], 400);
             }
 
+            if ($project !== null) {
+                $projectPath = base_path("sei-compilados/{$project}");
+                if (! is_dir($projectPath)) {
+                    Log::error('Project folder not found in submodule', [
+                        'project' => $project,
+                        'path' => $projectPath,
+                    ]);
+
+                    return response()->json([
+                        'error' => 'Project folder not found',
+                        'message' => "Folder '{$project}' does not exist in sei-compilados",
+                    ], 400);
+                }
+            }
+
             $output = $this->gitService->updateSubmodule($repository);
+
+            if ($project !== null) {
+                $deployOutput = $this->gitService->deployToFrontend($project);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Submodule updated and deployed successfully',
+                    'data' => [
+                        'repository' => $repository,
+                        'branch' => $branch,
+                        'project' => $project,
+                        'git_output' => $output,
+                        'deploy_output' => $deployOutput,
+                    ],
+                ], 200);
+            }
 
             return response()->json([
                 'status' => 'success',
