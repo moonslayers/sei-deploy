@@ -30,14 +30,50 @@ class GitService
 
     private function ensureGitIdentity(): void
     {
-        if ($this->gitIdentityConfigured) {
-            return;
+        try {
+            $workingDir = $this->baseDir;
+            $fullCommand = "cd {$workingDir} && git config --local user.email 2>&1";
+            exec($fullCommand, $output, $returnCode);
+
+            $currentEmail = $returnCode === 0 ? trim(implode("\n", $output)) : '';
+
+            if (empty($currentEmail)) {
+                $fullCommand = "cd {$workingDir} && git config --local user.email {$this->gitUserEmail} 2>&1";
+                exec($fullCommand, $output, $returnCode);
+
+                if ($returnCode !== 0) {
+                    Log::warning('Failed to set git user.email', [
+                        'output' => implode("\n", $output),
+                        'return_code' => $returnCode,
+                    ]);
+                } else {
+                    Log::info('Git email configured', ['email' => $this->gitUserEmail]);
+                }
+            }
+
+            $fullCommand = "cd {$workingDir} && git config --local user.name 2>&1";
+            exec($fullCommand, $output, $returnCode);
+
+            $currentName = $returnCode === 0 ? trim(implode("\n", $output)) : '';
+
+            if (empty($currentName)) {
+                $fullCommand = "cd {$workingDir} && git config --local user.name {$this->gitUserName} 2>&1";
+                exec($fullCommand, $output, $returnCode);
+
+                if ($returnCode !== 0) {
+                    Log::warning('Failed to set git user.name', [
+                        'output' => implode("\n", $output),
+                        'return_code' => $returnCode,
+                    ]);
+                } else {
+                    Log::info('Git name configured', ['name' => $this->gitUserName]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception while setting git identity', [
+                'error' => $e->getMessage(),
+            ]);
         }
-
-        $this->executeGitCommand("git config --global user.email '{$this->gitUserEmail}'");
-        $this->executeGitCommand("git config --global user.name '{$this->gitUserName}'");
-
-        $this->gitIdentityConfigured = true;
     }
 
     private function executeGitCommand(string $command, ?string $path = null): array
