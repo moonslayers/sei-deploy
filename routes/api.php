@@ -14,4 +14,7 @@ Route::post('/webhook/submodule', [WebhookController::class, 'updateSubmodule'])
 Route::post('/webhook/deploy', [WebhookController::class, 'updateDeploy'])
     ->middleware('verify.webhook.signature');
 
+Route::post('/webhook/{repo}', [WebhookController::class, 'updateBackend'])
+    ->middleware('verify.webhook.signature');
+
 Route::get('/status', [WebhookController::class, 'status']);

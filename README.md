@@ -68,10 +68,13 @@ Actualiza el submódulo `sei-compilados` y opcionalmente despliega archivos de f
 ### POST `/api/webhook/deploy`
 Actualiza el repositorio principal y el submódulo.
 
+### POST `/api/webhook/{repo}`
+Actualiza automáticamente un backend Laravel específico. Ejecuta git pull, limpia y regenera cache, y ejecuta migraciones. Soporta: `cef-backend`, `pmr-backend`, `sagem-backend`, `sidi-backend`.
+
 ### GET `/api/status`
 Obtiene el estado actual del repositorio y submódulo.
 
-Para más detalles, consulta el [Manual de Uso](./docs/manual-de-uso.md).
+Para más detalles, consulta el [Manual de Uso](./docs/manual-de-uso.md) o la [Guía de Configuración de Backends](./docs/configuracion-backends.md).
 
 ## Desarrollo
 

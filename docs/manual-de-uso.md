@@ -193,6 +193,147 @@ curl http://tu-servicio.com/api/status
 }
 ```
 
+### 4. POST `/api/webhook/{repo}` - Actualizar Backend Laravel
+
+Actualiza automáticamente un backend Laravel específico ejecutando la siguiente secuencia de comandos:
+
+1. **Git pull** del branch `main` con credenciales inline
+2. **Limpieza de cache**:
+   - `php artisan cache:clear`
+   - `php artisan config:clear`
+   - `php artisan route:clear`
+3. **Regeneración de cache**:
+   - `php artisan config:cache`
+   - `php artisan route:cache`
+4. **Migraciones**:
+   - `php artisan migrate --force`
+
+**Casos de uso:**
+- Después de cambios en el backend Laravel (código, migraciones, configuración)
+- Para mantener sincronizados los backends con producción
+- Ejecutar migraciones automáticamente sin acceso manual al servidor
+- Actualizar cache de rutas y configuración después de cambios
+
+**Requisitos:**
+- El backend debe estar configurado en la variable `BACKEND_PROJECTS` del `.env` de sei-deploy
+- El directorio del backend debe existir en el mismo nivel que `sei-deploy` (ej: `../sagem-backend`)
+- El backend debe ser un proyecto Laravel funcional
+
+**Request:**
+```bash
+curl -X POST http://tu-servicio.com/api/webhook/sagem-backend \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: <firma_base64>" \
+  -d '{
+    "timestamp": 1737465600
+  }'
+```
+
+**Response exitoso (200):**
+```json
+{
+  "status": "success",
+  "message": "Backend updated successfully",
+  "data": {
+    "repository": "sagem-backend",
+    "path": "/path/to/sagem-backend",
+    "results": {
+      "git_pull": {
+        "status": "success",
+        "output": ["Already up to date.", ""]
+      },
+      "artisan_commands": {
+        "cache_clear": {
+          "status": "success",
+          "output": ["Application cache cleared!"]
+        },
+        "config_clear": {
+          "status": "success",
+          "output": ["Configuration cache cleared!"]
+        },
+        "route_clear": {
+          "status": "success",
+          "output": ["Route cache cleared!"]
+        },
+        "config_cache": {
+          "status": "success",
+          "output": ["Configuration cached successfully!"]
+        },
+        "route_cache": {
+          "status": "success",
+          "output": ["Route cache cleared!", "Routes cached successfully!"]
+        },
+        "migrate": {
+          "status": "success",
+          "output": ["Nothing to migrate."]
+        }
+      }
+    }
+  }
+}
+```
+
+**Response error (400) - Backend no configurado:**
+```json
+{
+  "status": "error",
+  "message": "Invalid backend repository",
+  "error": "Backend 'sagem-backend' is not in the configured list",
+  "configured_backends": ["cef-backend", "pmr-backend", "sagem-backend", "sidi-backend"]
+}
+```
+
+**Response error (400) - Directorio no existe:**
+```json
+{
+  "status": "error",
+  "message": "Backend directory not found",
+  "error": "Directory '/path/to/sagem-backend' does not exist"
+}
+```
+
+**Response error (500) - Error en ejecución:**
+```json
+{
+  "status": "error",
+  "message": "Failed to update backend",
+  "error": "Command failed: php artisan migrate --force. Error: Migration failed...",
+  "results": {
+    "git_pull": { "status": "success", "output": [...] },
+    "artisan_commands": {
+      "cache_clear": { "status": "success", "output": [...] },
+      "config_clear": { "status": "success", "output": [...] },
+      "route_clear": { "status": "success", "output": [...] },
+      "config_cache": { "status": "success", "output": [...] },
+      "route_cache": { "status": "success", "output": [...] }
+    }
+  }
+}
+```
+
+**Configuración en `.env` de sei-deploy:**
+```env
+# Backends a actualizar automáticamente vía webhook
+# Ubicados en ../{backend-name} (mismo nivel que sei-deploy)
+BACKEND_PROJECTS=cef-backend,pmr-backend,sagem-backend,sidi-backend
+```
+
+**Estructura de directorios requerida:**
+```
+/projects/
+├── sei-deploy/           # Sistema de despliegue
+├── cef-backend/          # Backend 1
+├── pmr-backend/         # Backend 2
+├── sagem-backend/        # Backend 3
+└── sidi-backend/        # Backend 4
+```
+
+**Notas importantes:**
+- El git pull SIEMPRE usa el branch `main`
+- Los comandos artisan se ejecutan en el directorio del backend específico
+- Si cualquier comando falla, el proceso se detiene y retorna error 500
+- Cada paso se loguea para facilitar troubleshooting
+
 ## Seguridad y Firmas
 
 ### Requisitos de la Firma

@@ -111,6 +111,34 @@ class SeiDeployClient
             'body' => json_decode($response, true),
         ];
     }
+
+    public function updateBackend(string $repoName): array
+    {
+        $data = [
+            'timestamp' => time(),
+        ];
+
+        $payload = json_encode($data, JSON_UNESCAPED_SLASHES);
+        $signature = $this->signPayload($data);
+
+        $ch = curl_init($this->serverUrl . "/api/webhook/{$repoName}");
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-Webhook-Signature: ' . $signature,
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($ch);
+        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'status' => $statusCode,
+            'body' => json_decode($response, true),
+        ];
+    }
 }
 
 // Uso
@@ -206,6 +234,26 @@ class SeiDeployService
     public function getStatus(): array
     {
         $response = Http::get($this->serverUrl . '/api/status');
+
+        return [
+            'status' => $response->status(),
+            'body' => $response->json(),
+        ];
+    }
+
+    public function updateBackend(string $repoName): array
+    {
+        $data = [
+            'timestamp' => time(),
+        ];
+
+        $payload = json_encode($data, JSON_UNESCAPED_SLASHES);
+        $signature = $this->signPayload($data);
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'X-Webhook-Signature' => $signature,
+        ])->post($this->serverUrl . "/api/webhook/{$repoName}", $data);
 
         return [
             'status' => $response->status(),
@@ -311,6 +359,28 @@ class SeiDeployClient:
             'body': response.json()
         }
 
+    def update_backend(self, repo_name):
+        data = {
+            'timestamp': int(time.time())
+        }
+
+        payload = json.dumps(data, separators=(',', ':'))
+        signature = self._sign_payload(data)
+
+        response = requests.post(
+            f'{self.server_url}/api/webhook/{repo_name}',
+            data=payload,
+            headers={
+                'Content-Type': 'application/json',
+                'X-Webhook-Signature': signature
+            }
+        )
+
+        return {
+            'status': response.status_code,
+            'body': response.json()
+        }
+
 # Uso
 client = SeiDeployClient('http://tu-servicio.com', '/path/to/private_key.pem')
 
@@ -324,6 +394,10 @@ print(result)
 
 # Verificar estado
 result = client.get_status()
+print(result)
+
+# Actualizar backend
+result = client.update_backend('sagem-backend')
 print(result)
 ```
 
@@ -477,6 +551,14 @@ class SeiDeployClient {
             }).on('error', reject);
         });
     }
+
+    async updateBackend(repoName) {
+        const data = {
+            timestamp: Math.floor(Date.now() / 1000)
+        };
+
+        return this.makeRequest(`/api/webhook/${repoName}`, data);
+    }
 }
 
 // Uso
@@ -493,6 +575,10 @@ const client = new SeiDeployClient('http://tu-servicio.com', '/path/to/private_k
 
     // Verificar estado
     result = await client.getStatus();
+    console.log(result);
+
+    // Actualizar backend
+    result = await client.updateBackend('sagem-backend');
     console.log(result);
 })();
 ```
@@ -608,6 +694,38 @@ class SeiDeployClient {
             };
         }
     }
+
+    async updateBackend(repoName) {
+        const data = {
+            timestamp: Math.floor(Date.now() / 1000)
+        };
+
+        const payload = JSON.stringify(data);
+        const signature = this.signPayload(data);
+
+        try {
+            const response = await axios.post(
+                `${this.serverUrl}/api/webhook/${repoName}`,
+                payload,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Webhook-Signature': signature
+                    }
+                }
+            );
+
+            return {
+                status: response.status,
+                body: response.data
+            };
+        } catch (error) {
+            return {
+                status: error.response?.status || 500,
+                body: error.response?.data || { error: error.message }
+            };
+        }
+    }
 }
 
 // Uso
@@ -621,6 +739,9 @@ const client = new SeiDeployClient('http://tu-servicio.com', '/path/to/private_k
     console.log(result);
 
     result = await client.getStatus();
+    console.log(result);
+
+    result = await client.updateBackend('sagem-backend');
     console.log(result);
 })();
 ```
@@ -759,6 +880,22 @@ func (c *SeiDeployClient) GetStatus() (map[string]interface{}, error) {
 	return result, err
 }
 
+func (c *SeiDeployClient) UpdateBackend(repoName string) (map[string]interface{}, error) {
+	data := map[string]interface{}{
+		"timestamp": time.Now().Unix(),
+	}
+
+	resp, err := c.makeRequest("/api/webhook/"+repoName, data)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	return result, err
+}
+
 func main() {
 	client, err := NewSeiDeployClient("http://tu-servicio.com", "/path/to/private_key.pem")
 	if err != nil {
@@ -783,6 +920,14 @@ func main() {
 
 	// Verificar estado
 	result, err = client.GetStatus()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else {
+		fmt.Printf("Result: %v\n", result)
+	}
+
+	// Actualizar backend
+	result, err = client.UpdateBackend("sagem-backend")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
@@ -846,6 +991,14 @@ class SeiDeployClient
     }
   end
 
+  def update_backend(repo_name)
+    data = {
+      timestamp: Time.now.to_i
+    }
+
+    make_request("/api/webhook/#{repo_name}", data)
+  end
+
   private
 
   def make_request(endpoint, data)
@@ -882,6 +1035,10 @@ puts result
 
 # Verificar estado
 result = client.get_status
+puts result
+
+# Actualizar backend
+result = client.update_backend('sagem-backend')
 puts result
 ```
 

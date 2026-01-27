@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\BackendService;
 use App\Services\GitService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,9 +12,12 @@ class WebhookController extends Controller
 {
     private GitService $gitService;
 
-    public function __construct(GitService $gitService)
+    private BackendService $backendService;
+
+    public function __construct(GitService $gitService, BackendService $backendService)
     {
         $this->gitService = $gitService;
+        $this->backendService = $backendService;
     }
 
     public function updateSubmodule(Request $request): JsonResponse
@@ -176,6 +180,87 @@ class WebhookController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to get status',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateBackend(string $repoName): JsonResponse
+    {
+        try {
+            Log::info('Webhook received: update backend', [
+                'repository' => $repoName,
+                'timestamp' => now()->toIso8601String(),
+            ]);
+
+            $configuredBackends = env('BACKEND_PROJECTS', '');
+            
+            if (empty($configuredBackends)) {
+                Log::error('BACKEND_PROJECTS not configured');
+                
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No backends configured',
+                    'error' => 'BACKEND_PROJECTS environment variable is empty',
+                ], 500);
+            }
+
+            $backendList = array_map('trim', explode(',', $configuredBackends));
+
+            if (! in_array($repoName, $backendList)) {
+                Log::warning("Invalid backend repository: {$repoName}", [
+                    'configured_backends' => $backendList,
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid backend repository',
+                    'error' => "Backend '{$repoName}' is not in the configured list",
+                    'configured_backends' => $backendList,
+                ], 400);
+            }
+
+            $backendPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $repoName;
+
+            if (! is_dir($backendPath)) {
+                Log::error('Backend directory not found', [
+                    'backend' => $repoName,
+                    'expected_path' => $backendPath,
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Backend directory not found',
+                    'error' => "Directory '{$backendPath}' does not exist",
+                ], 400);
+            }
+
+            $result = $this->backendService->updateBackend($repoName, $backendPath);
+
+            if ($result['status'] === 'error') {
+                return response()->json($result, 500);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Backend updated successfully',
+                'data' => [
+                    'repository' => $repoName,
+                    'path' => $backendPath,
+                    'results' => $result['results'],
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update backend', [
+                'repository' => $repoName,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update backend',
                 'error' => $e->getMessage(),
             ], 500);
         }
