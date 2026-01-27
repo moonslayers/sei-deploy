@@ -22,6 +22,14 @@ Guía detallada para generar y configurar llaves RSA:
 - Rotación de llaves
 - Mejores prácticas de seguridad
 
+### [configuracion-backends.md](./configuracion-backends.md)
+Guía completa para configurar actualización automática de backends Laravel:
+- Configuración del servidor (BACKEND_PROJECTS)
+- Configuración de cada backend (secrets, workflows)
+- Ejemplo paso a paso
+- Verificación del despliegue
+- Troubleshooting común
+
 ### [github-workflow-template.yml](./github-workflow-template.yml)
 Plantilla de GitHub Actions para desplegar cambios:
 - Ejemplo de workflow para el repositorio principal
@@ -54,6 +62,12 @@ Plantilla universal para cualquier proyecto:
 - No requiere PHP, Node.js ni Python
 - Ideal para Go, Rust, Ruby, o cualquier otro lenguaje
 
+### [github-workflow-backend-universal.yml](./github-workflow-backend-universal.yml)
+Plantilla para actualizar backends Laravel:
+- Usa bash + openssl (universal)
+- Ejecuta git pull, limpieza de cache, regeneración de cache y migraciones
+- Ideal para cualquier backend Laravel que necesite despliegue automático
+
 ## 🚀 Guía Rápida de Inicio
 
 ### 1. Si eres el administrador del servidor:
@@ -70,7 +84,9 @@ Plantilla universal para cualquier proyecto:
 3. Revisa las plantillas de workflow:
    - **[github-workflow-template.yml](./github-workflow-template.yml)** si tu proyecto es el principal
    - **[github-workflow-submodule-template.yml](./github-workflow-submodule-template.yml)** si tu proyecto es un submódulo
-4. Configura los secrets en tu repositorio de GitHub
+   - **[github-workflow-backend-universal.yml](./github-workflow-backend-universal.yml)** si tienes un backend Laravel
+4. Si es un backend, sigue también **[configuracion-backends.md](./configuracion-backends.md)**
+5. Configura los secrets en tu repositorio de GitHub
 
 ## 📋 Diagrama de Flujo
 

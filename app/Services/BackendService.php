@@ -23,19 +23,19 @@ class BackendService
         $this->gitUserEmail = env('GIT_USER_EMAIL', 'deploy@server.com');
     }
 
-    public function updateBackend(string $backendName, string $backendPath): array
+    public function updateBackend(string $repoFullName, string $backendPath): array
     {
-        Log::info("Starting backend update for {$backendName}", [
+        Log::info("Starting backend update for {$repoFullName}", [
             'path' => $backendPath,
         ]);
 
         $results = [];
 
         try {
-            $results['git_pull'] = $this->pullBackend($backendName, $backendPath);
+            $results['git_pull'] = $this->pullBackend($repoFullName, $backendPath);
             $results['artisan_commands'] = $this->executeArtisanCommands($backendPath);
 
-            Log::info("Backend update completed successfully for {$backendName}");
+            Log::info("Backend update completed successfully for {$repoFullName}");
 
             return [
                 'status' => 'success',
@@ -43,7 +43,7 @@ class BackendService
                 'results' => $results,
             ];
         } catch (\Exception $e) {
-            Log::error("Failed to update backend {$backendName}", [
+            Log::error("Failed to update backend {$repoFullName}", [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -57,11 +57,11 @@ class BackendService
         }
     }
 
-    private function pullBackend(string $backendName, string $backendPath): array
+    private function pullBackend(string $repoFullName, string $backendPath): array
     {
-        Log::info("Starting git pull for backend {$backendName}");
+        Log::info("Starting git pull for backend {$repoFullName}");
 
-        $repoUrl = $this->getBackendRepoUrlWithCredentials($backendName);
+        $repoUrl = $this->getRepoUrlWithCredentials($repoFullName);
         $workingDir = $backendPath;
         $fullCommand = "cd {$workingDir} && git pull {$repoUrl} main 2>&1";
 
@@ -70,15 +70,15 @@ class BackendService
         if ($returnCode !== 0) {
             $errorOutput = implode("\n", $output);
             Log::error('Git pull failed for backend', [
-                'backend' => $backendName,
+                'backend' => $repoFullName,
                 'output' => $errorOutput,
                 'return_code' => $returnCode,
             ]);
 
-            throw new Exception("Git pull failed for {$backendName}: {$errorOutput}");
+            throw new Exception("Git pull failed for {$repoFullName}: {$errorOutput}");
         }
 
-        Log::info("Git pull completed for backend {$backendName}");
+        Log::info("Git pull completed for backend {$repoFullName}");
 
         return [
             'status' => 'success',
@@ -86,13 +86,13 @@ class BackendService
         ];
     }
 
-    private function getBackendRepoUrlWithCredentials(string $backendName): string
+    private function getRepoUrlWithCredentials(string $repo): string
     {
         if (empty($this->githubUser) || empty($this->githubToken)) {
             throw new Exception('GitHub credentials not configured');
         }
 
-        return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$backendName}.git";
+        return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
     private function executeArtisanCommands(string $backendPath): array

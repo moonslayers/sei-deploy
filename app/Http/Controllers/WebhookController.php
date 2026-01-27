@@ -207,7 +207,18 @@ class WebhookController extends Controller
 
             $backendList = array_map('trim', explode(',', $configuredBackends));
 
-            if (! in_array($repoName, $backendList)) {
+            $matchedBackend = null;
+            $directoryName = null;
+
+            foreach ($backendList as $backend) {
+                if (str_ends_with($backend, '/' . $repoName) || $backend === $repoName) {
+                    $matchedBackend = $backend;
+                    $directoryName = basename($backend);
+                    break;
+                }
+            }
+
+            if ($matchedBackend === null) {
                 Log::warning("Invalid backend repository: {$repoName}", [
                     'configured_backends' => $backendList,
                 ]);
@@ -220,11 +231,12 @@ class WebhookController extends Controller
                 ], 400);
             }
 
-            $backendPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $repoName;
+            $backendPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $directoryName;
 
             if (! is_dir($backendPath)) {
                 Log::error('Backend directory not found', [
-                    'backend' => $repoName,
+                    'backend' => $matchedBackend,
+                    'directory_name' => $directoryName,
                     'expected_path' => $backendPath,
                 ]);
 
@@ -235,7 +247,7 @@ class WebhookController extends Controller
                 ], 400);
             }
 
-            $result = $this->backendService->updateBackend($repoName, $backendPath);
+            $result = $this->backendService->updateBackend($matchedBackend, $backendPath);
 
             if ($result['status'] === 'error') {
                 return response()->json($result, 500);
@@ -245,7 +257,8 @@ class WebhookController extends Controller
                 'status' => 'success',
                 'message' => 'Backend updated successfully',
                 'data' => [
-                    'repository' => $repoName,
+                    'repository' => $matchedBackend,
+                    'directory' => $directoryName,
                     'path' => $backendPath,
                     'results' => $result['results'],
                 ],

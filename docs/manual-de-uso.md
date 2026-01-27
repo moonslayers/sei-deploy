@@ -215,9 +215,10 @@ Actualiza automáticamente un backend Laravel específico ejecutando la siguient
 - Actualizar cache de rutas y configuración después de cambios
 
 **Requisitos:**
-- El backend debe estar configurado en la variable `BACKEND_PROJECTS` del `.env` de sei-deploy
+- El backend debe estar configurado en la variable `BACKEND_PROJECTS` del `.env` de sei-deploy en formato `organizacion/repo-name`
 - El directorio del backend debe existir en el mismo nivel que `sei-deploy` (ej: `../sagem-backend`)
-- El backend debe ser un proyecto Laravel funcional
+- El nombre del directorio físico es solo el nombre del repo (sin la organización)
+- El backend debe ser un proyecto Laravel functional
 
 **Request:**
 ```bash
@@ -235,7 +236,8 @@ curl -X POST http://tu-servicio.com/api/webhook/sagem-backend \
   "status": "success",
   "message": "Backend updated successfully",
   "data": {
-    "repository": "sagem-backend",
+    "repository": "moonslayers/sagem-backend",
+    "directory": "sagem-backend",
     "path": "/path/to/sagem-backend",
     "results": {
       "git_pull": {
@@ -279,7 +281,7 @@ curl -X POST http://tu-servicio.com/api/webhook/sagem-backend \
   "status": "error",
   "message": "Invalid backend repository",
   "error": "Backend 'sagem-backend' is not in the configured list",
-  "configured_backends": ["cef-backend", "pmr-backend", "sagem-backend", "sidi-backend"]
+  "configured_backends": ["moonslayers/cef-backend", "moonslayers/pmr-backend", "moonslayers/sagem-backend", "moonslayers/sidi-backend"]
 }
 ```
 
@@ -314,8 +316,9 @@ curl -X POST http://tu-servicio.com/api/webhook/sagem-backend \
 **Configuración en `.env` de sei-deploy:**
 ```env
 # Backends a actualizar automáticamente vía webhook
-# Ubicados en ../{backend-name} (mismo nivel que sei-deploy)
-BACKEND_PROJECTS=cef-backend,pmr-backend,sagem-backend,sidi-backend
+# Formato: organizacion/repo-name
+# Ubicados en ../repo-name (mismo nivel que sei-deploy)
+BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
 ```
 
 **Estructura de directorios requerida:**

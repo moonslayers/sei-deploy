@@ -11,7 +11,7 @@ on:
 
 env:
   DEPLOY_SERVER_URL: http://tu-servicio.com
-  BACKEND_NAME: sagem-backend  # Cambiar según tu backend
+  BACKEND_NAME: moonslayers/sagem-backend  # Formato: organizacion/repo-name
 
 jobs:
   update_backend:

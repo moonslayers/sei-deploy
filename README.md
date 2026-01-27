@@ -7,6 +7,7 @@ Sistema de despliegue automático basado en webhooks para Laravel, diseñado par
 La documentación completa se encuentra en el directorio `docs/`:
 
 - 📖 [Manual de Uso](./docs/manual-de-uso.md) - Guía completa del sistema, APIs y casos de uso
+- 🔧 [Configuración de Backends](./docs/configuracion-backends.md) - Guía para configurar actualización automática de backends Laravel
 - 🔑 [Generación de Llaves RSA](./docs/generacion-de-llaves.md) - Cómo generar y configurar llaves RSA
 - 📋 [README de Documentación](./docs/README.md) - Índice de toda la documentación
 - 🔌 [Ejemplos de Clientes](./docs/ejemplos-clientes.md) - Implementaciones en múltiples lenguajes
@@ -43,20 +44,24 @@ Para errores comunes de despliegue, consulta la sección de **[Preguntas Frecuen
    ```
 
 2. **Variables de entorno requeridas:**
-   ```bash
-   # Configuración de GitHub
-   GITHUB_USER=your-github-username
-   GITHUB_TOKEN=ghp_your-personal-access-token
-   GITHUB_REPO_MAIN=username/sei-deploy          # Formato: usuario/repositorio
-   GITHUB_REPO_SUBMODULE=username/sei-compilados # Formato: usuario/repositorio
+    ```bash
+    # Configuración de GitHub
+    GITHUB_USER=your-github-username
+    GITHUB_TOKEN=ghp_your-personal-access-token
+    GITHUB_REPO_MAIN=username/sei-deploy          # Formato: usuario/repositorio
+    GITHUB_REPO_SUBMODULE=username/sei-compilados # Formato: usuario/repositorio
 
-   # Configuración de Git
-   GIT_USER_NAME=Deploy Bot
-   GIT_USER_EMAIL=deploy@server.com
+    # Configuración de Git
+    GIT_USER_NAME=Deploy Bot
+    GIT_USER_EMAIL=deploy@server.com
 
-   # Llave pública RSA (codificada en base64)
-   PUBLIC_KEY=LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K...
-   ```
+    # Backends a actualizar automáticamente
+    # Formato: usuario/repo-name (ej: moonslayers/sagem-backend)
+    BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
+
+    # Llave pública RSA (codificada en base64)
+    PUBLIC_KEY=LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K...
+    ```
 
 3. **Generar llaves RSA** (ver [generacion-de-llaves.md](./docs/generacion-de-llaves.md))
 
