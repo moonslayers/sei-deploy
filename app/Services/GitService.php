@@ -73,7 +73,7 @@ class GitService
         $this->executeGitCommand('git submodule sync');
 
         $submoduleUrl = $this->getSubmoduleUrlWithCredentials($submodulePath);
-        $output = $this->executeGitCommand("git -C {$submodulePath} pull {$submoduleUrl} main");
+        $output = $this->executeGitCommand("git -C {$submodulePath} pull --allow-unrelated-histories {$submoduleUrl} main");
 
         Log::info('Submodule update completed successfully', ['output' => $output]);
 
