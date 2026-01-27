@@ -13,11 +13,31 @@ class GitService
 
     private string $baseDir;
 
+    private string $gitUserName;
+
+    private string $gitUserEmail;
+
+    private bool $gitIdentityConfigured = false;
+
     public function __construct()
     {
         $this->githubUser = env('GITHUB_USER', '');
         $this->githubToken = env('GITHUB_TOKEN', '');
         $this->baseDir = base_path();
+        $this->gitUserName = env('GIT_USER_NAME', 'Deploy Bot');
+        $this->gitUserEmail = env('GIT_USER_EMAIL', 'deploy@server.com');
+    }
+
+    private function ensureGitIdentity(): void
+    {
+        if ($this->gitIdentityConfigured) {
+            return;
+        }
+
+        $this->executeGitCommand("git config --global user.email '{$this->gitUserEmail}'");
+        $this->executeGitCommand("git config --global user.name '{$this->gitUserName}'");
+
+        $this->gitIdentityConfigured = true;
     }
 
     private function executeGitCommand(string $command, ?string $path = null): array
@@ -42,6 +62,8 @@ class GitService
 
     public function pullMainRepo(): array
     {
+        $this->ensureGitIdentity();
+
         Log::info('Starting git pull for main repository');
 
         $repoUrl = $this->getRepoUrlWithCredentials();
@@ -68,6 +90,8 @@ class GitService
 
     public function updateSubmodule(string $submodulePath = 'sei-compilados'): array
     {
+        $this->ensureGitIdentity();
+
         Log::info("Starting submodule update for {$submodulePath}");
 
         $this->executeGitCommand('git submodule sync');
