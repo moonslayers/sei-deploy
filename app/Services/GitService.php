@@ -136,7 +136,7 @@ class GitService
 
         $this->executeGitCommand("git config submodule.{$submodulePath}.url {$submoduleUrl}");
 
-        $output = $this->executeGitCommand("git -C {$submodulePath} pull --allow-unrelated-histories main");
+        $output = $this->executeGitCommand("git -C {$submodulePath} pull origin main --allow-unrelated-histories");
 
         Log::info('Submodule update completed successfully', ['output' => $output]);
 
