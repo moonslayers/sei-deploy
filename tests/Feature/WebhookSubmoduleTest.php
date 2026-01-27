@@ -11,10 +11,9 @@ class WebhookSubmoduleTest extends TestCase
     public function test_update_submodule_with_valid_signature(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Submodule updated successfully']);
+            ->andReturn(['Repository updated successfully']);
 
         $data = WebhookHelper::createValidWebhookData([
             'repository' => 'sei-compilados',
@@ -32,7 +31,7 @@ class WebhookSubmoduleTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'success',
-                'message' => 'Submodule updated successfully',
+                'message' => 'Compiled repository updated and all frontends deployed successfully',
                 'data' => [
                     'repository' => 'sei-compilados',
                     'branch' => 'main',
@@ -84,7 +83,7 @@ class WebhookSubmoduleTest extends TestCase
     public function test_update_submodule_with_invalid_repository(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->never();
 
         $data = WebhookHelper::createValidWebhookData([
@@ -123,10 +122,9 @@ class WebhookSubmoduleTest extends TestCase
     public function test_update_submodule_with_project_deploys_successfully(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Submodule updated successfully']);
+            ->andReturn(['Repository updated successfully']);
 
         $gitServiceMock->shouldReceive('deployToFrontend')
             ->once()
@@ -153,7 +151,7 @@ class WebhookSubmoduleTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'success',
-                'message' => 'Submodule updated and deployed successfully',
+                'message' => 'Compiled repository updated and all frontends deployed successfully',
                 'data' => [
                     'repository' => 'sei-compilados',
                     'branch' => 'main',
@@ -165,7 +163,7 @@ class WebhookSubmoduleTest extends TestCase
     public function test_update_submodule_with_nonexistent_project_returns_error(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->never();
 
         $gitServiceMock->shouldReceive('deployToFrontend')
@@ -195,10 +193,9 @@ class WebhookSubmoduleTest extends TestCase
     public function test_update_submodule_without_project_skips_deployment(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Submodule updated successfully']);
+            ->andReturn(['Repository updated successfully']);
 
         $gitServiceMock->shouldReceive('deployToFrontend')
             ->never();
@@ -219,7 +216,7 @@ class WebhookSubmoduleTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'success',
-                'message' => 'Submodule updated successfully',
+                'message' => 'Compiled repository updated and all frontends deployed successfully',
                 'data' => [
                     'repository' => 'sei-compilados',
                     'branch' => 'main',

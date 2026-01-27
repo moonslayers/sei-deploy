@@ -124,26 +124,21 @@ class GitService
         return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
-    public function updateSubmodule(string $submodulePath = 'sei-compilados'): array
+    public function pullCompiledRepo(): array
     {
-        $this->ensureGitIdentity();
+        $compiledRepoPath = dirname($this->baseDir) . DIRECTORY_SEPARATOR . 'sei-compilados';
 
-        Log::info("Starting submodule update for {$submodulePath}");
+        Log::info("Starting git pull for compiled repository at {$compiledRepoPath}");
 
-        $submoduleUrl = $this->getSubmoduleUrlWithCredentials($submodulePath);
+        $repoUrl = $this->getCompiledRepoUrlWithCredentials();
+        $output = $this->executeGitCommand("git pull {$repoUrl} main", $compiledRepoPath);
 
-        $this->executeGitCommand("git config --file=.gitmodules submodule.{$submodulePath}.url {$submoduleUrl}");
-
-        $this->executeGitCommand("git config submodule.{$submodulePath}.url {$submoduleUrl}");
-
-        $output = $this->executeGitCommand("git -C {$submodulePath} pull origin main --allow-unrelated-histories");
-
-        Log::info('Submodule update completed successfully', ['output' => $output]);
+        Log::info('Compiled repository pull completed successfully', ['output' => $output]);
 
         return $output;
     }
 
-    private function getSubmoduleUrlWithCredentials(string $submodulePath): string
+    private function getCompiledRepoUrlWithCredentials(): string
     {
         if (empty($this->githubUser) || empty($this->githubToken)) {
             throw new Exception('GitHub credentials not configured');
@@ -171,18 +166,13 @@ class GitService
         return $output[0] ?? 'unknown';
     }
 
-    public function getSubmoduleStatus(string $submodulePath = 'sei-compilados'): array
-    {
-        $output = $this->executeGitCommand('git submodule status');
 
-        return $output;
-    }
 
     public function deployToFrontend(string $projectFolder): array
     {
         Log::info("Starting deployment for {$projectFolder}");
 
-        $sourcePath = base_path("sei-compilados/{$projectFolder}");
+        $sourcePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $projectFolder;
         $destPath = "/var/www/{$projectFolder}";
 
         if (! is_dir($sourcePath)) {
@@ -230,7 +220,7 @@ class GitService
             try {
                 Log::info("Starting rsync deployment for {$project}");
 
-                $sourcePath = base_path("sei-compilados/{$project}");
+                $sourcePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $project;
                 $destPath = "/var/www/{$project}";
 
                 if (! is_dir($sourcePath)) {

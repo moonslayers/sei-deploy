@@ -24,7 +24,7 @@ class WebhookController extends Controller
             $branch = $data['branch'] ?? 'main';
             $project = $data['project'] ?? null;
 
-            Log::info('Webhook received: update submodule', [
+            Log::info('Webhook received: update compiled repository', [
                 'repository' => $repository,
                 'branch' => $branch,
                 'project' => $project,
@@ -41,9 +41,9 @@ class WebhookController extends Controller
             }
 
             if ($project !== null) {
-                $projectPath = base_path("sei-compilados/{$project}");
+                $projectPath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $project;
                 if (! is_dir($projectPath)) {
-                    Log::error('Project folder not found in submodule', [
+                    Log::error('Project folder not found in compiled repository', [
                         'project' => $project,
                         'path' => $projectPath,
                     ]);
@@ -55,7 +55,7 @@ class WebhookController extends Controller
                 }
             }
 
-            $output = $this->gitService->updateSubmodule($repository);
+            $output = $this->gitService->pullCompiledRepo();
 
             $deployOutputs = $this->gitService->deployAllFrontends();
 
@@ -65,7 +65,7 @@ class WebhookController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Submodule updated and all frontends deployed successfully',
+                'message' => 'Compiled repository updated and all frontends deployed successfully',
                 'data' => [
                     'repository' => $repository,
                     'branch' => $branch,
@@ -76,18 +76,19 @@ class WebhookController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Failed to update submodule', [
+            Log::error('Failed to update compiled repository', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to update submodule',
+                'message' => 'Failed to update compiled repository',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
+
 
     public function updateDeploy(Request $request): JsonResponse
     {
@@ -111,13 +112,13 @@ class WebhookController extends Controller
 
             $output = $this->gitService->pullMainRepo();
 
-            $submoduleOutput = [];
+            $compiledOutput = [];
             $deployOutputs = [];
             try {
-                $submoduleOutput = $this->gitService->updateSubmodule('sei-compilados');
+                $compiledOutput = $this->gitService->pullCompiledRepo();
                 $deployOutputs = $this->gitService->deployAllFrontends();
             } catch (\Exception $e) {
-                Log::warning('Failed to update submodule or deploy frontends after deploy', [
+                Log::warning('Failed to update compiled repository or deploy frontends after deploy', [
                     'error' => $e->getMessage(),
                 ]);
 
@@ -134,7 +135,7 @@ class WebhookController extends Controller
                 'data' => [
                     'branch' => $branch,
                     'main_pull' => $output,
-                    'submodule_update' => $submoduleOutput,
+                    'compiled_update' => $compiledOutput,
                     'deployments' => $deployOutputs,
                 ],
             ], 200);
@@ -158,14 +159,12 @@ class WebhookController extends Controller
         try {
             $currentBranch = $this->gitService->getCurrentBranch();
             $status = $this->gitService->getStatus();
-            $submoduleStatus = $this->gitService->getSubmoduleStatus('sei-compilados');
 
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'current_branch' => $currentBranch,
                     'git_status' => $status,
-                    'submodule_status' => $submoduleStatus,
                 ],
             ], 200);
 

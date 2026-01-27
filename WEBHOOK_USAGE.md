@@ -1,12 +1,12 @@
 # Webhook Documentation for sei-deploy
 
-This document explains how to configure and use the webhook API for deploying updates to sei-deploy and its submodules.
+This document explains how to configure and use the webhook API for deploying updates to sei-deploy and the sei-compilados repository.
 
 ## Overview
 
 The sei-deploy server provides two webhook endpoints:
-1. **POST /api/webhook/submodule** - Updates the sei-compilados submodule
-2. **POST /api/webhook/deploy** - Pulls updates from the main repository and updates submodules
+1. **POST /api/webhook/submodule** - Updates the sei-compilados repository
+2. **POST /api/webhook/deploy** - Pulls updates from the main repository and the sei-compilados repository
 
 All webhooks are secured using RSA signatures to ensure authenticity.
 
@@ -29,7 +29,7 @@ Each webhook request must include a digital signature created with the private R
 ### Key Fields
 - `timestamp`: Unix timestamp (must be within ±5 minutes of server time)
 - `action`: Type of action being performed
-- `repository`: Repository name (only "sei-compilados" for submodule endpoint)
+- `repository`: Repository name (only "sei-compilados" for this endpoint)
 - `branch`: Git branch (only "main" is supported)
 - `project`: **(Optional)** Project folder name in sei-compilados to deploy to `/var/www/{project}`. If provided, after a successful git pull, the frontend files will be automatically deployed to `/var/www/{project}`. Example: "pmr-frontend", "sagem-frontend", "sidi-frontend".
 - `signature`: Base64-encoded RSA-SHA256 signature of the entire payload
@@ -202,7 +202,7 @@ jobs:
 
 ### POST /api/webhook/submodule
 
-Updates sei-compilados submodule and optionally deploys frontend files to `/var/www/{project}`.
+Updates sei-compilados repository and optionally deploys frontend files to `/var/www/{project}`.
 
 **Request (Without Deployment):**
 ```json
@@ -300,14 +300,14 @@ Updates sei-compilados submodule and optionally deploys frontend files to `/var/
 ```json
 {
   "status": "error",
-  "message": "Failed to update submodule",
+  "message": "Failed to update repository",
   "error": "error details..."
 }
 ```
 
 ### POST /api/webhook/deploy
 
-Pulls updates from the main repository and updates all submodules.
+Pulls updates from the main repository and updates the sei-compilados repository.
 
 **Request:**
 ```json
@@ -327,14 +327,14 @@ Pulls updates from the main repository and updates all submodules.
   "data": {
     "branch": "main",
     "main_pull": ["git output lines..."],
-    "submodule_update": ["submodule update lines..."]
+    "compiled_update": ["compiled repository update lines..."]
   }
 }
 ```
 
 ### GET /api/status
 
-Returns the current status of the repository and submodules.
+Returns the current status of the repository.
 
 **Response:**
 ```json
@@ -342,8 +342,7 @@ Returns the current status of the repository and submodules.
   "status": "success",
   "data": {
     "current_branch": "main",
-    "git_status": ["status lines..."],
-    "submodule_status": ["submodule status lines..."]
+    "git_status": ["status lines..."]
   }
 }
 ```
@@ -405,19 +404,12 @@ curl -X POST "http://localhost:8000/api/webhook/submodule" \
 
 ### Error: "refusing to merge unrelated histories"
 - This occurs when merging repositories without common history
-- The system automatically uses `--allow-unrelated-histories` flag in `updateSubmodule()`
-- If the error persists, manually reset the submodule:
+- The system automatically uses `--allow-unrelated-histories` flag in `pullCompiledRepo()`
+- If the error persists, manually reset the repository:
   ```bash
-  cd /path/to/sei-deploy/sei-compilados
+  cd /path/to/Projects/sei-compilados
   git reset --hard HEAD
   git pull --allow-unrelated-histories https://github.com/user/repo.git main
-  ```
-- For a complete reset, use:
-  ```bash
-  cd /path/to/sei-deploy
-  git submodule deinit -f sei-compilados
-  rm -rf .git/modules/sei-compilados
-  git submodule update --init --remote sei-compilados
   ```
 
 ### Error: "Committer identity unknown" / "Please tell me who you are"

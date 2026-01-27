@@ -2,7 +2,7 @@
 
 ## Descripción
 
-SEI Deploy es un sistema de despliegue automático basado en webhooks para Laravel. Permite actualizar automáticamente repositorios y submódulos mediante webhooks firmados con RSA.
+SEI Deploy es un sistema de despliegue automático basado en webhooks para Laravel. Permite actualizar automáticamente repositorios mediante webhooks firmados con RSA.
 
 ## 💡 Nota sobre las Plantillas de GitHub Actions
 
@@ -21,12 +21,12 @@ Las plantillas de workflows vienen en diferentes variantes según el lenguaje de
 
 ### 1. POST `/api/webhook/submodule`
 
-Actualiza el submódulo `sei-compilados` del repositorio y opcionalmente despliega archivos de frontend a `/var/www/{project}`.
+Actualiza el repositorio `sei-compilados` y opcionalmente despliega archivos de frontend a `/var/www/{project}`.
 
 **Casos de uso:**
 - Después de compilar cambios en el repositorio `sei-compilados`
-- Cuando necesitas actualizar solo el submódulo sin afectar el repositorio principal
-- En proyectos donde el submódulo contiene código compilado o artefactos
+- Cuando necesitas actualizar solo el repositorio compilados sin afectar el repositorio principal
+- En proyectos donde el repositorio compilados contiene código compilado o artefactos
 - **Despliegue automático de frontend**: Después del git pull, si se especifica el parámetro `project`, los archivos se copian automáticamente de `sei-compilados/{project}` a `/var/www/{project}`
 
 **Nota importante sobre el despliegue:**
@@ -127,13 +127,13 @@ curl -X POST http://tu-servicio.com/api/webhook/submodule \
 
 ### 2. POST `/api/webhook/deploy`
 
-Actualiza el repositorio principal y el submódulo.
+Actualiza el repositorio principal y el repositorio compilados.
 
-**Nota importante:** Este endpoint NO incluye despliegue de frontend a `/var/www`. Para desplegar un proyecto específico después de actualizar el submódulo, usa el endpoint `/api/webhook/submodule` con el parámetro `project`.
+**Nota importante:** Este endpoint NO incluye despliegue de frontend a `/var/www`. Para desplegar un proyecto específico después de actualizar el repositorio compilados, usa el endpoint `/api/webhook/submodule` con el parámetro `project`.
 
 **Casos de uso:**
 - Después de hacer merge a la rama `main`
-- Para desplegar cambios completos (principal + submódulo)
+- Para desplegar cambios completos (principal + repositorio compilados)
 - En el flujo principal de CI/CD del proyecto
 
 **Request:**
@@ -155,7 +155,7 @@ curl -X POST http://tu-servicio.com/api/webhook/deploy \
   "data": {
     "branch": "main",
     "main_pull": ["Pull successful"],
-    "submodule_update": ["Submodule updated successfully"]
+    "compiled_update": ["Repository updated successfully"]
   }
 }
 ```
@@ -170,7 +170,7 @@ curl -X POST http://tu-servicio.com/api/webhook/deploy \
 
 ### 3. GET `/api/status`
 
-Obtiene el estado actual del repositorio y submódulo.
+Obtiene el estado actual del repositorio.
 
 **Casos de uso:**
 - Monitoreo del estado de despliegue
@@ -188,8 +188,7 @@ curl http://tu-servicio.com/api/status
   "status": "success",
   "data": {
     "current_branch": "main",
-    "git_status": ["M app/Http/Controllers/WebhookController.php"],
-    "submodule_status": ["+1234567 sei-compilados (main)"]
+    "git_status": ["M app/Http/Controllers/WebhookController.php"]
   }
 }
 ```
@@ -242,7 +241,7 @@ GIT_USER_EMAIL=deploy@server.com
 ### Notas importantes sobre las variables de entorno
 
 - **GITHUB_REPO_MAIN**: Nombre completo del repositorio principal en formato `usuario/repositorio` (ej: `moonslayers/sei-deploy`)
-- **GITHUB_REPO_SUBMODULE**: Nombre completo del repositorio del submódulo en formato `usuario/repositorio` (ej: `moonslayers/sei-compilados`)
+- **GITHUB_REPO_SUBMODULE**: Nombre completo del repositorio compilados en formato `usuario/repositorio` (ej: `moonslayers/sei-compilados`)
 - **GIT_USER_NAME** y **GIT_USER_EMAIL**: Identidad de Git que se configurará automáticamente para las operaciones de Git del sistema. Valores por defecto: "Deploy Bot" / "deploy@server.com"
 - **GITHUB_TOKEN**: Debe ser un Personal Access Token (PAT) de GitHub con permisos de lectura para los repositorios especificados
 
@@ -278,21 +277,25 @@ Ver los archivos:
 
 | API | Cuándo usarla | Qué actualiza |
 |-----|--------------|---------------|
-| `/api/webhook/deploy` | Merge a `main` del repo principal | Repositorio principal + submódulo |
-| `/api/webhook/submodule` (sin `project`) | Cambios solo en submódulo | Solo el submódulo `sei-compilados` |
-| `/api/webhook/submodule` (con `project`) | Después de compilar frontend | Submódulo + despliegue automático a `/var/www/{project}` |
+| `/api/webhook/deploy` | Merge a `main` del repo principal | Repositorio principal + repositorio compilados |
+| `/api/webhook/submodule` (sin `project`) | Cambios solo en repo compilados | Solo el repo `sei-compilados` |
+| `/api/webhook/submodule` (con `project`) | Después de compilar frontend | Repo compilados + despliegue automático a `/var/www/{project}` |
 | `/api/status` | Cualquier momento (GET) | Solo lectura del estado |
 
 ### Proyectos que Deben Hacer POST
 
-1. **Proyecto Principal** (contiene el submódulo)
+1. **Proyecto Principal**
    - Hacer POST a `/api/webhook/deploy` después de merge a `main`
 
-2. **Proyecto Compilados** (submódulo)
+2. **Proyecto Compilados**
    - Hacer POST a `/api/webhook/submodule` después de completar compilaciones
-   - **Opción A (sin despliegue)**: Solo actualizar el submódulo
-     ```json
-     {"repository": "sei-compilados", "branch": "main"}
+   - **Opción A (sin despliegue)**: Solo actualizar el repositorio
+   - **Opción B (con despliegue automático)**: Actualizar repositorio y desplegar a `/var/www`
+     ```bash
+     curl -X POST http://tu-servicio.com/api/webhook/submodule \
+       -H "Content-Type: application/json" \
+       -H "X-Webhook-Signature: <firma>" \
+       -d '{"repository": "sei-compilados", "branch": "main", "project": "pmr-frontend", "timestamp": 1737465600}'
      ```
    - **Opción B (con despliegue automático)**: Actualizar submódulo y desplegar a `/var/www`
      ```json
@@ -394,33 +397,25 @@ php artisan test
 
 **Problema:** Git rechaza fusionar dos repositorios sin historia común.
 
-**Causa:** El submódulo fue clonado incorrectamente o desde un repositorio diferente, o se intenta fusionar dos repositorios que no tienen commits en común.
+**Causa:** El repositorio fue clonado incorrectamente o desde un repositorio diferente, o se intenta fusionar dos repositorios que no tienen commits en común.
 
 **Solución 1 (desde el servidor):**
 ```bash
-cd /ruta/a/sei-deploy/sei-compilados
+cd /ruta/a/Projects/sei-compilados
 git reset --hard HEAD
 git pull --allow-unrelated-histories https://github.com/usuario/repositorio.git main
 ```
 
-**Solución 2 (reiniciar submódulo desde cero - más limpia):**
+**Solución 2 (clonar manualmente el repositorio):**
 ```bash
-cd /ruta/a/sei-deploy
-git submodule deinit -f sei-compilados
-rm -rf .git/modules/sei-compilados
-git submodule update --init --remote sei-compilados
-```
-
-**Solución 3 (clonar manualmente el submódulo):**
-```bash
-cd /ruta/a/sei-deploy
+cd /ruta/a/Projects
 rm -rf sei-compilados
 git clone https://github.com/usuario/repositorio.git sei-compilados
 cd sei-compilados
 git checkout main
 ```
 
-**Nota:** El sistema SEI Deploy ya usa automáticamente el flag `--allow-unrelated-histories` en el método `updateSubmodule()` (línea 76 de `app/Services/GitService.php`), por lo que este error debería ser raro en operaciones normales. Si ocurre, usa una de las soluciones manuales anteriores.
+**Nota:** El sistema SEI Deploy ya usa automáticamente el flag `--allow-unrelated-histories` en el método `pullCompiledRepo()`, por lo que este error debería ser raro en operaciones normales. Si ocurre, usa una de las soluciones manuales anteriores.
 
 ---
 
@@ -608,32 +603,25 @@ git config --global user.email deploy@server.com  # ❌ Esto causa el error
 
 ---
 
-### Error: "fatal: refusing to merge unrelated histories" en submódulo después de actualizar
+### Error: "fatal: refusing to merge unrelated histories" en repositorio compilados después de actualizar
 
-**Problema:** Similar al primer error, pero ocurre específicamente en el submódulo `sei-compilados` después de un pull.
+**Problema:** Similar al primer error, pero ocurre específicamente en el repositorio `sei-compilados` después de un pull.
 
-**Causa:** El submódulo apunta a un repositorio diferente o fue reemplazado manualmente.
+**Causa:** El repositorio apunta a un repositorio diferente o fue reemplazado manualmente.
 
 **Solución más robusta (recomendada):**
 ```bash
-cd /ruta/a/sei-deploy
+cd /ruta/a/Projects
 
-# Eliminar completamente el submódulo y su historial
-git submodule deinit -f sei-compilados
-git rm -f sei-compilados
-rm -rf .git/modules/sei-compilados
+# Eliminar completamente el repositorio
+rm -rf sei-compilados
 
-# Volver a agregar el submódulo
-git submodule add https://github.com/usuario/sei-compilados.git sei-compilados
+# Volver a clonar el repositorio
+git clone https://github.com/usuario/sei-compilados.git sei-compilados
 
-# Configurar el submódulo para que siga la rama main
+# Configurar el repositorio para que siga la rama main
 cd sei-compilados
 git checkout main
-cd ..
-
-# Commit del cambio
-git add .gitmodules sei-compilados
-git commit -m "Fix submodule: reinitialized sei-compilados"
 ```
 
 ---

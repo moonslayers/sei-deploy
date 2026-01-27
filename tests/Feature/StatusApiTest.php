@@ -16,10 +16,6 @@ class StatusApiTest extends TestCase
         $gitServiceMock->shouldReceive('getStatus')
             ->once()
             ->andReturn(['On branch main']);
-        $gitServiceMock->shouldReceive('getSubmoduleStatus')
-            ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Sei-compilados: Up to date']);
 
         $response = $this->getJson('/api/status');
 
@@ -29,7 +25,6 @@ class StatusApiTest extends TestCase
                 'data' => [
                     'current_branch' => 'main',
                     'git_status' => ['On branch main'],
-                    'submodule_status' => ['Sei-compilados: Up to date'],
                 ],
             ]);
     }
@@ -59,10 +54,6 @@ class StatusApiTest extends TestCase
         $gitServiceMock->shouldReceive('getStatus')
             ->once()
             ->andReturn(['Clean working directory']);
-        $gitServiceMock->shouldReceive('getSubmoduleStatus')
-            ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Sei-compilados: Clean']);
 
         $response = $this->getJson('/api/status');
 
@@ -72,7 +63,6 @@ class StatusApiTest extends TestCase
                 'data' => [
                     'current_branch',
                     'git_status',
-                    'submodule_status',
                 ],
             ]);
     }
@@ -86,10 +76,6 @@ class StatusApiTest extends TestCase
         $gitServiceMock->shouldReceive('getStatus')
             ->once()
             ->andReturn(['On branch develop']);
-        $gitServiceMock->shouldReceive('getSubmoduleStatus')
-            ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Sei-compilados: Modified']);
 
         $response = $this->getJson('/api/status');
 

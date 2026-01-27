@@ -14,10 +14,9 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
             ->andReturn(['Pull successful']);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
-            ->with('sei-compilados')
-            ->andReturn(['Submodule updated successfully']);
+            ->andReturn(['Repository updated successfully']);
 
         $data = WebhookHelper::createValidWebhookData([
             'branch' => 'main',
@@ -85,7 +84,7 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock = $this->mock(GitService::class);
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->never();
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->never();
 
         $data = WebhookHelper::createValidWebhookData([
@@ -126,10 +125,9 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
             ->andReturn(['Pull successful']);
-        $gitServiceMock->shouldReceive('updateSubmodule')
+        $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
-            ->with('sei-compilados')
-            ->andThrow(new \Exception('Submodule update failed'));
+            ->andThrow(new \Exception('Repository update failed'));
 
         $data = WebhookHelper::createValidWebhookData([
             'branch' => 'main',
@@ -150,7 +148,7 @@ class WebhookDeployTest extends TestCase
                 'data' => [
                     'branch' => 'main',
                     'main_pull' => ['Pull successful'],
-                    'submodule_update' => [],
+                    'compiled_update' => [],
                 ],
             ]);
     }
