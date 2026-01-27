@@ -57,29 +57,21 @@ class WebhookController extends Controller
 
             $output = $this->gitService->updateSubmodule($repository);
 
-            if ($project !== null) {
-                $deployOutput = $this->gitService->deployToFrontend($project);
+            $deployOutputs = $this->gitService->deployAllFrontends();
 
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Submodule updated and deployed successfully',
-                    'data' => [
-                        'repository' => $repository,
-                        'branch' => $branch,
-                        'project' => $project,
-                        'git_output' => $output,
-                        'deploy_output' => $deployOutput,
-                    ],
-                ], 200);
+            if ($project !== null) {
+                $deployOutputs[$project] = $this->gitService->deployToFrontend($project);
             }
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Submodule updated successfully',
+                'message' => 'Submodule updated and all frontends deployed successfully',
                 'data' => [
                     'repository' => $repository,
                     'branch' => $branch,
-                    'output' => $output,
+                    'project' => $project,
+                    'git_output' => $output,
+                    'deployments' => $deployOutputs,
                 ],
             ], 200);
 
@@ -120,12 +112,20 @@ class WebhookController extends Controller
             $output = $this->gitService->pullMainRepo();
 
             $submoduleOutput = [];
+            $deployOutputs = [];
             try {
                 $submoduleOutput = $this->gitService->updateSubmodule('sei-compilados');
+                $deployOutputs = $this->gitService->deployAllFrontends();
             } catch (\Exception $e) {
-                Log::warning('Failed to update submodule after deploy', [
+                Log::warning('Failed to update submodule or deploy frontends after deploy', [
                     'error' => $e->getMessage(),
                 ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to update deploy',
+                    'error' => $e->getMessage(),
+                ], 500);
             }
 
             return response()->json([
@@ -135,6 +135,7 @@ class WebhookController extends Controller
                     'branch' => $branch,
                     'main_pull' => $output,
                     'submodule_update' => $submoduleOutput,
+                    'deployments' => $deployOutputs,
                 ],
             ], 200);
 

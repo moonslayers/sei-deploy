@@ -6,9 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  SEI_SERVER_URL: https://sei-apps.bajacalifornia.gob.mx/sei/api
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -68,7 +65,7 @@ jobs:
           PAYLOAD=$(cat payload.json)
           SIGNATURE="${{ steps.sign_payload.outputs.signature }}"
 
-          curl -X POST "${{ env.SEI_SERVER_URL }}" \
+          curl -X POST "${{ secrets.SEI_SERVER_URL }}" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Signature: ${SIGNATURE}" \
             -d "${PAYLOAD}" \

@@ -132,8 +132,7 @@ class GitService
 
         $this->executeGitCommand('git submodule sync');
 
-        $submoduleUrl = $this->getSubmoduleUrlWithCredentials($submodulePath);
-        $output = $this->executeGitCommand("git -C {$submodulePath} pull --allow-unrelated-histories {$submoduleUrl} main");
+        $output = $this->executeGitCommand("git submodule update --remote --merge {$submodulePath}");
 
         Log::info('Submodule update completed successfully', ['output' => $output]);
 
@@ -209,6 +208,65 @@ class GitService
             'source' => $sourcePath,
             'destination' => $destPath,
         ];
+    }
+
+    public function deployAllFrontends(): array
+    {
+        $projects = env('FRONTEND_PROJECTS', '');
+
+        if (empty($projects)) {
+            Log::info('No frontends configured for automatic deployment');
+            return [];
+        }
+
+        $projectList = array_map('trim', explode(',', $projects));
+        $results = [];
+
+        foreach ($projectList as $project) {
+            try {
+                Log::info("Starting rsync deployment for {$project}");
+
+                $sourcePath = base_path("sei-compilados/{$project}");
+                $destPath = "/var/www/{$project}";
+
+                if (! is_dir($sourcePath)) {
+                    throw new Exception("Source folder {$sourcePath} does not exist");
+                }
+
+                if (! is_dir($destPath)) {
+                    throw new Exception("Destination folder {$destPath} does not exist");
+                }
+
+                $rsyncCommand = "rsync -av --delete {$sourcePath}/ {$destPath}/ 2>&1";
+                exec($rsyncCommand, $output, $returnCode);
+
+                if ($returnCode !== 0) {
+                    throw new Exception("Rsync failed: " . implode("\n", $output));
+                }
+
+                $results[$project] = [
+                    'status' => 'success',
+                    'message' => 'Deployment completed successfully',
+                    'output' => $output,
+                ];
+
+                Log::info("Rsync deployment completed for {$project}");
+            } catch (\Exception $e) {
+                Log::error("Failed to deploy {$project}", [
+                    'error' => $e->getMessage(),
+                ]);
+
+                $results[$project] = [
+                    'status' => 'error',
+                    'message' => 'Deployment failed',
+                    'error' => $e->getMessage(),
+                ];
+
+                throw $e;
+            }
+        }
+
+        return $results;
     }
 
     private function deleteDirectoryContents(string $path): void
