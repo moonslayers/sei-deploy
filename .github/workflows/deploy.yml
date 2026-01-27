@@ -48,7 +48,7 @@ jobs:
             echo "WEBHOOK_PRIVATE_KEY no configurado, usando firma simple"
             echo "signature=$(echo -n '{}' | base64 -w 0)" >> $GITHUB_OUTPUT
           else
-            echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" > private_key.pem
+            echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" | base64 -d > private_key.pem
 
             PAYLOAD=$(cat payload.json)
 

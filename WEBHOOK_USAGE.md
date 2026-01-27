@@ -103,7 +103,7 @@ jobs:
           TIMESTAMP=$(date +%s)
           PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main"}'
 
-          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}") -binary | base64)
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" | base64 -d) -binary | base64)
 
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
@@ -143,7 +143,7 @@ jobs:
           TIMESTAMP=$(date +%s)
           PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei-compilados","branch":"main","project":"pmr-frontend"}'
 
-          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}") -binary | base64)
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign <(echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" | base64 -d) -binary | base64)
 
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
@@ -179,7 +179,7 @@ jobs:
     steps:
       - name: Setup private key
         run: |
-          echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" > /tmp/private_key.pem
+          echo "${{ secrets.WEBHOOK_PRIVATE_KEY }}" | base64 -d > /tmp/private_key.pem
 
       - name: Generate and send webhook
         run: |

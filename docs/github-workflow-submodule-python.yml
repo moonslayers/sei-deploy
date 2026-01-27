@@ -47,7 +47,7 @@ jobs:
           from cryptography.hazmat.primitives.asymmetric import padding
 
           # Decodificar llave privada
-          private_key_data = base64.b64decode(base64.b64decode(process.env.PRIVATE_KEY))
+          private_key_data = base64.b64decode(process.env.PRIVATE_KEY)
           private_key = serialization.load_pem_private_key(
               private_key_data,
               password=None
