@@ -1,11 +1,105 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SEI Deploy
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistema de despliegue automático basado en webhooks para Laravel, diseñado para gestionar actualizaciones de repositorios y submódulos mediante webhooks firmados con RSA.
+
+## Documentación
+
+La documentación completa se encuentra en el directorio `docs/`:
+
+- 📖 [Manual de Uso](./docs/manual-de-uso.md) - Guía completa del sistema, APIs y casos de uso
+- 🔑 [Generación de Llaves RSA](./docs/generacion-de-llaves.md) - Cómo generar y configurar llaves RSA
+- 📋 [README de Documentación](./docs/README.md) - Índice de toda la documentación
+- 🔌 [Ejemplos de Clientes](./docs/ejemplos-clientes.md) - Implementaciones en múltiples lenguajes
+- 🚀 [WEBHOOK_USAGE.md](./WEBHOOK_USAGE.md) - Documentación técnica de webhooks en inglés
+
+## Preguntas Frecuentes y Troubleshooting
+
+Para errores comunes de despliegue, consulta la sección de **[Preguntas Frecuentes (FAQ)](./docs/manual-de-uso.md#preguntas-frecuentes-faq-errores-comunes-de-despliegue)** en el manual de uso, donde encontrarás soluciones para:
+
+- ✅ Error: "refusing to merge unrelated histories"
+- ✅ Error: "Committer identity unknown"
+- ✅ Error: "could not lock config file /var/www/.gitconfig: Permission denied"
+- ✅ Error: Webhook timeout
+- ✅ Error: "Failed to connect to server"
+- ✅ Y más errores comunes...
+
+## Características Principales
+
+- 🔐 **Seguridad RSA**: Webhooks firmados con criptografía asimétrica (RSA-2048 + SHA256)
+- 🔄 **Actualización Automática**: Pull de repositorios principales y submódulos
+- 🚀 **Despliegue de Frontend**: Copia automática de archivos compilados a `/var/www/`
+- 📊 **Monitoreo**: API de estado para verificar el estado del repositorio
+- 🌐 **Multi-lenguaje**: Plantillas para GitHub Actions en PHP, Node.js, Python y Bash
+
+## Inicio Rápido
+
+1. **Configurar el servidor:**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   # Configurar las variables de entorno (ver abajo)
+   php artisan migrate
+   php artisan serve
+   ```
+
+2. **Variables de entorno requeridas:**
+   ```bash
+   # Configuración de GitHub
+   GITHUB_USER=your-github-username
+   GITHUB_TOKEN=ghp_your-personal-access-token
+   GITHUB_REPO_MAIN=username/sei-deploy          # Formato: usuario/repositorio
+   GITHUB_REPO_SUBMODULE=username/sei-compilados # Formato: usuario/repositorio
+
+   # Configuración de Git
+   GIT_USER_NAME=Deploy Bot
+   GIT_USER_EMAIL=deploy@server.com
+
+   # Llave pública RSA (codificada en base64)
+   PUBLIC_KEY=LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K...
+   ```
+
+3. **Generar llaves RSA** (ver [generacion-de-llaves.md](./docs/generacion-de-llaves.md))
+
+## APIs Disponibles
+
+### POST `/api/webhook/submodule`
+Actualiza el submódulo `sei-compilados` y opcionalmente despliega archivos de frontend.
+
+### POST `/api/webhook/deploy`
+Actualiza el repositorio principal y el submódulo.
+
+### GET `/api/status`
+Obtiene el estado actual del repositorio y submódulo.
+
+Para más detalles, consulta el [Manual de Uso](./docs/manual-de-uso.md).
+
+## Desarrollo
+
+```bash
+# Instalar dependencias
+composer install
+npm install
+
+# Ejecutar tests
+php artisan test
+
+# Verificar estilo de código
+./vendor/bin/pint --test
+
+# Correr servidor de desarrollo
+composer dev
+```
+
+## Soporte
+
+Para preguntas o problemas:
+1. Revisa la sección de [Preguntas Frecuentes](./docs/manual-de-uso.md#preguntas-frecuentes-faq-errores-comunes-de-despliegue)
+2. Consulta el [WEBHOOK_USAGE.md](./WEBHOOK_USAGE.md) para troubleshooting técnico
+3. Revisa los tests en `tests/Feature/` para ejemplos de uso
+
+---
+
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 ## About Laravel
 

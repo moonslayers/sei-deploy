@@ -401,3 +401,81 @@ curl -X POST "http://localhost:8000/api/webhook/submodule" \
 - Check `GITHUB_USER` and `GITHUB_TOKEN` in `.env`
 - Ensure the token has appropriate repository permissions
 - Verify git credential helper is configured correctly
+- Check that `GITHUB_REPO_MAIN` and `GITHUB_REPO_SUBMODULE` are in format `user/repo` (e.g., `moonslayers/sei-deploy`)
+
+### Error: "refusing to merge unrelated histories"
+- This occurs when merging repositories without common history
+- The system automatically uses `--allow-unrelated-histories` flag in `updateSubmodule()`
+- If the error persists, manually reset the submodule:
+  ```bash
+  cd /path/to/sei-deploy/sei-compilados
+  git reset --hard HEAD
+  git pull --allow-unrelated-histories https://github.com/user/repo.git main
+  ```
+- For a complete reset, use:
+  ```bash
+  cd /path/to/sei-deploy
+  git submodule deinit -f sei-compilados
+  rm -rf .git/modules/sei-compilados
+  git submodule update --init --remote sei-compilados
+  ```
+
+### Error: "Committer identity unknown" / "Please tell me who you are"
+- The system automatically configures git identity from `.env`
+- Ensure `GIT_USER_NAME` and `GIT_USER_EMAIL` are configured
+- Default values: "Deploy Bot" / "deploy@server.com"
+- The system uses `--local` flag to avoid permission issues
+
+### Error: "Permission denied" on git config file
+- The system uses `--local` flag instead of `--global`
+- This writes to `.git/config` instead of `/var/www/.gitconfig`
+- No manual action needed - this is handled automatically in `ensureGitIdentity()`
+- If using the command manually: use `git config --local` instead of `git config --global`
+
+### Error: Webhook timeout (curl: (28) Failed to connect after X ms)
+- The webhook is taking too long to respond (> 134 seconds in default curl)
+- Possible causes: slow Git pull, large deployments, network issues
+- Solutions:
+  - Increase timeout in GitHub Actions workflow: add `--max-time 300` to curl
+  - Check server logs: `php artisan pail` or `tail -f storage/logs/laravel.log`
+  - Verify server is running: `systemctl status nginx` or `systemctl status apache2`
+  - Test connection locally: `curl http://localhost/api/webhook/submodule`
+
+### Error: "Failed to connect to server" / "Couldn't connect to server"
+- Server not responding on the specified port
+- Check if server is running:
+  ```bash
+  # For nginx
+  sudo systemctl status nginx
+  
+  # For Apache
+  sudo systemctl status apache2
+  
+  # For php artisan serve
+  php artisan serve --host=0.0.0.0 --port=8000
+  ```
+- Check if port is open: `netstat -tlnp | grep :80`
+- Check firewall rules
+- Test connection from server: `curl http://localhost/api/webhook/submodule`
+
+### Error: "repository 'https://github.com/...' not found"
+- Git cannot find the specified repository
+- Check repository format in `.env`:
+  - Correct: `GITHUB_REPO_MAIN=moonslayers/sei-deploy`
+  - Incorrect: `GITHUB_REPO_MAIN=sei-deploy` (missing user)
+- Verify GitHub token has repository access permissions
+- Test token manually:
+  ```bash
+  curl -H "Authorization: token YOUR_TOKEN" \
+    https://api.github.com/repos/username/repo
+  ```
+
+### Error: "unable to access 'https://github.com/...': Failed to connect"
+- Server cannot connect to GitHub
+- Possible causes: corporate proxy, firewall blocking github.com, DNS issues
+- Test connection: `ping github.com` and `curl -I https://github.com`
+- Configure proxy if needed:
+  ```bash
+  git config --local http.proxy http://proxy.example.com:8080
+  git config --local https.proxy https://proxy.example.com:8080
+  ```

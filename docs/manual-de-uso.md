@@ -231,13 +231,24 @@ El payload debe incluir:
 ```bash
 # .env
 PUBLIC_KEY=LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K... (llave pública en base64)
-GITHUB_USER=tu-usuario
+GITHUB_USER=tu-usuario-github
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GITHUB_REPO_MAIN=usuario/sei-deploy          # Formato: usuario/repositorio
+GITHUB_REPO_SUBMODULE=usuario/sei-compilados # Formato: usuario/repositorio
+GIT_USER_NAME=Deploy Bot
+GIT_USER_EMAIL=deploy@server.com
 ```
+
+### Notas importantes sobre las variables de entorno
+
+- **GITHUB_REPO_MAIN**: Nombre completo del repositorio principal en formato `usuario/repositorio` (ej: `moonslayers/sei-deploy`)
+- **GITHUB_REPO_SUBMODULE**: Nombre completo del repositorio del submódulo en formato `usuario/repositorio` (ej: `moonslayers/sei-compilados`)
+- **GIT_USER_NAME** y **GIT_USER_EMAIL**: Identidad de Git que se configurará automáticamente para las operaciones de Git del sistema. Valores por defecto: "Deploy Bot" / "deploy@server.com"
+- **GITHUB_TOKEN**: Debe ser un Personal Access Token (PAT) de GitHub con permisos de lectura para los repositorios especificados
 
 ### Configuración de Git
 
-El servidor necesita tener Git configurado con credenciales para poder hacer pull de repositorios privados.
+El servidor necesita tener Git configurado con credenciales para poder hacer pull de repositorios privados. El sistema SEI Deploy configura automáticamente la identidad de Git (`user.name` y `user.email`) usando las variables `GIT_USER_NAME` y `GIT_USER_EMAIL` del archivo `.env`.
 
 ## Integración con Proyectos Externos
 
@@ -376,6 +387,323 @@ php artisan test
 ### Error: "Public key not configured"
 - Configurar la variable `PUBLIC_KEY` en `.env`
 - La llave debe estar codificada en base64
+
+## Preguntas Frecuentes (FAQ) - Errores Comunes de Despliegue
+
+### Error: "refusing to merge unrelated histories"
+
+**Problema:** Git rechaza fusionar dos repositorios sin historia común.
+
+**Causa:** El submódulo fue clonado incorrectamente o desde un repositorio diferente, o se intenta fusionar dos repositorios que no tienen commits en común.
+
+**Solución 1 (desde el servidor):**
+```bash
+cd /ruta/a/sei-deploy/sei-compilados
+git reset --hard HEAD
+git pull --allow-unrelated-histories https://github.com/usuario/repositorio.git main
+```
+
+**Solución 2 (reiniciar submódulo desde cero - más limpia):**
+```bash
+cd /ruta/a/sei-deploy
+git submodule deinit -f sei-compilados
+rm -rf .git/modules/sei-compilados
+git submodule update --init --remote sei-compilados
+```
+
+**Solución 3 (clonar manualmente el submódulo):**
+```bash
+cd /ruta/a/sei-deploy
+rm -rf sei-compilados
+git clone https://github.com/usuario/repositorio.git sei-compilados
+cd sei-compilados
+git checkout main
+```
+
+**Nota:** El sistema SEI Deploy ya usa automáticamente el flag `--allow-unrelated-histories` en el método `updateSubmodule()` (línea 76 de `app/Services/GitService.php`), por lo que este error debería ser raro en operaciones normales. Si ocurre, usa una de las soluciones manuales anteriores.
+
+---
+
+### Error: "Committer identity unknown" / "Please tell me who you are"
+
+**Problema:** Git no tiene configurado `user.name` y `user.email` para el usuario que está ejecutando las operaciones.
+
+**Causa:** El usuario del servidor (ej: `www-data`) no tiene configuración de Git, por lo que Git no puede realizar operaciones que requieren información del committer.
+
+**Solución automática:** SEI Deploy configura automáticamente estos valores desde el archivo `.env`:
+- `GIT_USER_NAME=Deploy Bot`
+- `GIT_USER_EMAIL=deploy@server.com`
+
+El método `ensureGitIdentity()` en `app/Services/GitService.php` verifica si Git ya tiene configuración y, si no, la configura automáticamente usando el flag `--local` para evitar problemas de permisos.
+
+**Solución manual (si necesitas valores específicos):**
+```bash
+# Configurar globalmente (requiere permisos de root)
+sudo git config --global user.email "tu-email@ejemplo.com"
+sudo git config --global user.name "Tu Nombre"
+
+# O configurar solo para el repositorio actual (recomendado)
+cd /ruta/a/sei-deploy
+git config --local user.email "tu-email@ejemplo.com"
+git config --local user.name "Tu Nombre"
+```
+
+---
+
+### Error: "could not lock config file /var/www/.gitconfig: Permission denied"
+
+**Problema:** El usuario `www-data` (u otro usuario del servidor) no tiene permisos para escribir en el archivo de configuración global de Git en `/var/www/.gitconfig`.
+
+**Causa:** Intento de configurar Git globalmente usando `git config --global`, lo que requiere permisos de escritura en `/var/www/.gitconfig`.
+
+**Solución:** SEI Deploy usa `--local` en lugar de `--global` para escribir en `.git/config` del proyecto, donde el usuario `www-data` sí tiene permisos.
+
+**Implementación en el código:**
+El método `ensureGitIdentity()` en `app/Services/GitService.php` usa comandos como:
+```bash
+git config --local user.email deploy@server.com
+git config --local user.name "Deploy Bot"
+```
+
+En lugar de:
+```bash
+git config --global user.email deploy@server.com  # ❌ Esto causa el error
+```
+
+**Nota:** Esto ya está implementado en el código actual, no requiere acción manual. Si ves este error, asegúrate de tener la versión más reciente de `GitService.php`.
+
+---
+
+### Error: Webhook timeout (curl: (28) Failed to connect after X ms)
+
+**Problema:** El webhook tarda demasiado en responder (más de 134 segundos en el ejemplo).
+
+**Causas posibles:**
+- Operaciones Git lentas (pull muy grande o red lenta)
+- Problemas de red entre GitHub Actions y el servidor
+- Despliegue de archivos muy grandes
+- El servidor está bloqueado en una operación Git pendiente
+
+**Soluciones:**
+
+1. **Aumentar el timeout en el GitHub Actions workflow:**
+   ```yaml
+   - name: Send Webhook to SEI Server
+     run: |
+       PAYLOAD=$(cat payload.json)
+       SIGNATURE="${{ steps.sign_payload.outputs.signature }}"
+       
+       curl -X POST "${{ env.SEI_SERVER_URL }}" \
+         -H "Content-Type: application/json" \
+         -H "X-Webhook-Signature: ${SIGNATURE}" \
+         -d "${PAYLOAD}" \
+         --max-time 300 \
+         --silent --show-error --fail-with-body
+   ```
+
+2. **Verificar que el servidor no esté bloqueado:**
+   ```bash
+   # Revisar logs
+   tail -f storage/logs/laravel.log
+   
+   # Monitoreo en tiempo real
+   php artisan pail
+   
+   # Ver procesos de Git
+   ps aux | grep git
+   ```
+
+3. **Verificar estado del servidor:**
+   ```bash
+   # Si usas nginx
+   systemctl status nginx
+   
+   # Si usas Apache
+   systemctl status apache2
+   
+   # Si usas php artisan serve
+   # Asegúrate de que esté corriendo en el puerto correcto
+   ```
+
+4. **Probar conexión local:**
+   ```bash
+   curl http://localhost/api/webhook/submodule
+   curl http://localhost/api/webhook/deploy
+   ```
+
+---
+
+### Error: "Failed to connect to server" / "Couldn't connect to server"
+
+**Problema:** El servidor no responde en el puerto especificado (puerto 80 o 443).
+
+**Causas posibles:**
+- El servidor web no está corriendo
+- Firewall bloqueando el puerto
+- URL incorrecta en el webhook
+- Problemas de red o DNS
+
+**Soluciones:**
+
+1. **Verificar que el servidor web está corriendo:**
+   ```bash
+   # Si usas nginx
+   sudo systemctl status nginx
+   sudo systemctl start nginx
+   
+   # Si usas Apache
+   sudo systemctl status apache2
+   sudo systemctl start apache2
+   
+   # Si usas php artisan serve (solo desarrollo)
+   php artisan serve --host=0.0.0.0 --port=8000
+   ```
+
+2. **Verificar que el puerto está abierto:**
+   ```bash
+   # Ver puertos en uso
+   netstat -tlnp | grep :80
+   netstat -tlnp | grep :443
+   
+   # O con ss
+   ss -tlnp | grep :80
+   ```
+
+3. **Verificar firewall:**
+   ```bash
+   # Si usas ufw (Ubuntu/Debian)
+   sudo ufw status
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   
+   # Si usas firewalld (CentOS/RHEL)
+   sudo firewall-cmd --list-ports
+   sudo firewall-cmd --add-port=80/tcp --permanent
+   sudo firewall-cmd --add-port=443/tcp --permanent
+   sudo firewall-cmd --reload
+   ```
+
+4. **Probar conexión desde el servidor localmente:**
+   ```bash
+   # Probar en localhost
+   curl http://localhost/api/webhook/submodule
+   
+   # Probar desde otra máquina en la misma red
+   curl http://IP_DEL_SERVIDOR/api/webhook/submodule
+   
+   # Probar DNS
+   ping sei-apps.bajacalifornia.gob.mx
+   ```
+
+5. **Revisar logs del servidor web:**
+   ```bash
+   # Nginx
+   sudo tail -f /var/log/nginx/error.log
+   sudo tail -f /var/log/nginx/access.log
+   
+   # Apache
+   sudo tail -f /var/log/apache2/error.log
+   sudo tail -f /var/log/apache2/access.log
+   ```
+
+---
+
+### Error: "fatal: refusing to merge unrelated histories" en submódulo después de actualizar
+
+**Problema:** Similar al primer error, pero ocurre específicamente en el submódulo `sei-compilados` después de un pull.
+
+**Causa:** El submódulo apunta a un repositorio diferente o fue reemplazado manualmente.
+
+**Solución más robusta (recomendada):**
+```bash
+cd /ruta/a/sei-deploy
+
+# Eliminar completamente el submódulo y su historial
+git submodule deinit -f sei-compilados
+git rm -f sei-compilados
+rm -rf .git/modules/sei-compilados
+
+# Volver a agregar el submódulo
+git submodule add https://github.com/usuario/sei-compilados.git sei-compilados
+
+# Configurar el submódulo para que siga la rama main
+cd sei-compilados
+git checkout main
+cd ..
+
+# Commit del cambio
+git add .gitmodules sei-compilados
+git commit -m "Fix submodule: reinitialized sei-compilados"
+```
+
+---
+
+### Error: "fatal: repository 'https://github.com/usuario/repositorio.git/' not found"
+
+**Problema:** Git no puede encontrar el repositorio especificado.
+
+**Causas posibles:**
+- El nombre del repositorio en `.env` está incorrecto
+- El token de GitHub (`GITHUB_TOKEN`) no tiene permisos para el repositorio
+- El repositorio es privado y el token no tiene acceso
+- El usuario de GitHub (`GITHUB_USER`) está incorrecto
+
+**Soluciones:**
+
+1. **Verificar el formato del repositorio en `.env`:**
+   ```bash
+   # Correcto: usuario/repositorio
+   GITHUB_REPO_MAIN=moonslayers/sei-deploy
+   GITHUB_REPO_SUBMODULE=moonslayers/sei-compilados
+   
+   # Incorrecto: sin usuario o mal formateado
+   GITHUB_REPO_MAIN=sei-deploy  # ❌ Falta el usuario
+   GITHUB_REPO_MAIN=https://github.com/moonslayers/sei-deploy  # ❌ URL completa
+   ```
+
+2. **Verificar que el token tiene permisos:**
+   - Ve a GitHub → Settings → Developer settings → Personal access tokens
+   - Asegúrate de que el token tenga permisos de `repo` (read and write)
+   - Si es un repositorio de una organización, asegúrate de que el token tenga acceso a la organización
+
+3. **Probar el token manualmente:**
+   ```bash
+   curl -H "Authorization: token GHP_XXXXXXXXXX" \
+     https://api.github.com/repos/moonslayers/sei-deploy
+   ```
+   Si esto funciona, el token es correcto. Si falla, verifica el token y los permisos.
+
+---
+
+### Error: "fatal: unable to access 'https://github.com/...': Failed to connect to github.com port 443"
+
+**Problema:** El servidor no puede conectarse a GitHub.
+
+**Causas posibles:**
+- Proxy corporativo bloqueando la conexión
+- Firewall bloqueando la conexión a github.com
+- Problemas de DNS
+
+**Soluciones:**
+
+1. **Probar conexión a GitHub:**
+   ```bash
+   ping github.com
+   curl -I https://github.com
+   ```
+
+2. **Configurar proxy (si es necesario):**
+   ```bash
+   git config --global http.proxy http://proxy.example.com:8080
+   git config --global https.proxy https://proxy.example.com:8080
+   ```
+
+3. **O configurar proxy solo para este repositorio:**
+   ```bash
+   cd /ruta/a/sei-deploy
+   git config --local http.proxy http://proxy.example.com:8080
+   git config --local https.proxy https://proxy.example.com:8080
+   ```
 
 ## Soporte
 
