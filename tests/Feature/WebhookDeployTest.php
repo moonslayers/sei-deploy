@@ -17,6 +17,9 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andReturn(['Repository updated successfully']);
+        $gitServiceMock->shouldReceive('deployAllFrontends')
+            ->once()
+            ->andReturn([]);
 
         $data = WebhookHelper::createValidWebhookData([
             'branch' => 'main',
@@ -141,15 +144,11 @@ class WebhookDeployTest extends TestCase
             'HTTP_X_WEBHOOK_SIGNATURE' => $signed['signature'],
         ], $signed['payload']);
 
-        $response->assertStatus(200)
+        $response->assertStatus(500)
             ->assertJson([
-                'status' => 'success',
-                'message' => 'Deploy updated successfully',
-                'data' => [
-                    'branch' => 'main',
-                    'main_pull' => ['Pull successful'],
-                    'compiled_update' => [],
-                ],
+                'status' => 'error',
+                'message' => 'Failed to update deploy',
+                'error' => 'Repository update failed',
             ]);
     }
 }
