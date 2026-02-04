@@ -13,6 +13,10 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
+set -a
+source .env
+set +a
+
 echo "Iniciando deploy del backend..."
 
 git pull "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${REPO_FULL_NAME}.git" main || exit 1
