@@ -14,6 +14,9 @@ class WebhookSubmoduleTest extends TestCase
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andReturn(['Repository updated successfully']);
+        $gitServiceMock->shouldReceive('deployAllFrontends')
+            ->once()
+            ->andReturn([]);
 
         $data = WebhookHelper::createValidWebhookData([
             'repository' => 'sei-compilados',
@@ -126,6 +129,10 @@ class WebhookSubmoduleTest extends TestCase
             ->once()
             ->andReturn(['Repository updated successfully']);
 
+        $gitServiceMock->shouldReceive('deployAllFrontends')
+            ->once()
+            ->andReturn(['deployments' => 'mocked']);
+
         $gitServiceMock->shouldReceive('deployToFrontend')
             ->once()
             ->with('pmr-frontend')
@@ -196,6 +203,9 @@ class WebhookSubmoduleTest extends TestCase
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andReturn(['Repository updated successfully']);
+        $gitServiceMock->shouldReceive('deployAllFrontends')
+            ->once()
+            ->andReturn([]);
 
         $gitServiceMock->shouldReceive('deployToFrontend')
             ->never();
