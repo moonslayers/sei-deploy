@@ -103,9 +103,9 @@ class BackendService
 
         $commands = [
             'cache_clear' => 'php artisan cache:clear',
-            'config_clear' => 'php artisan config:clear',
             'route_clear' => 'php artisan route:clear',
             'config_cache' => 'php artisan config:cache',
+            'config_clear' => 'php artisan config:clear',
             'route_cache' => 'php artisan route:cache',
             'migrate' => 'php artisan migrate --force',
         ];
