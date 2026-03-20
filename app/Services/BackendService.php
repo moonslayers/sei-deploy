@@ -33,7 +33,7 @@ class BackendService
 
         try {
             $results['git_pull'] = $this->pullBackend($repoFullName, $backendPath);
-            $results['artisan_commands'] = $this->executeArtisanCommands($backendPath);
+            $results['artisan_commands'] = $this->executeArtisanCommands($backendPath, $repoFullName);
 
             Log::info("Backend update completed successfully for {$repoFullName}");
 
@@ -95,55 +95,28 @@ class BackendService
         return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
-    private function executeArtisanCommands(string $backendPath): array
+    private function executeArtisanCommands(string $backendPath, string $repoFullName): array
     {
-        Log::info("Executing artisan commands for backend", ['path' => $backendPath]);
+        Log::info("Executing deploy script for backend", ['path' => $backendPath]);
 
-        $results = [];
+        $scriptPath = base_path('scripts/deploy-backend.sh');
+        $githubUser = $this->githubUser;
+        $githubToken = $this->githubToken;
 
-        $commands = [
-            'cache_clear' => 'php artisan cache:clear',
-            'config_clear' => 'php artisan config:clear',
-            'route_clear' => 'php artisan route:clear',
-            'config_cache' => 'php artisan config:cache',
-            'route_cache' => 'php artisan route:cache',
-            'migrate' => 'php artisan migrate --force',
-            'queue' => 'php artisan queue:restart',
-            'sleep' => 'sleep 10',
-        ];
+        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} 2>&1";
 
-        foreach ($commands as $key => $command) {
-            $results[$key] = $this->executeCommand($command, $backendPath, $key);
-        }
-
-        Log::info('All artisan commands completed successfully');
-
-        return $results;
-    }
-
-    private function executeCommand(string $command, string $backendPath, string $commandKey): array
-    {
-        $workingDir = $backendPath;
-        $fullCommand = "cd {$workingDir} && {$command} 2>&1";
-
-        exec($fullCommand, $output, $returnCode);
+        exec($command, $output, $returnCode);
 
         if ($returnCode !== 0) {
             $errorOutput = implode("\n", $output);
-            Log::error('Artisan command failed', [
-                'command' => $command,
-                'command_key' => $commandKey,
+            Log::error('Deploy script failed', [
                 'output' => $errorOutput,
                 'return_code' => $returnCode,
             ]);
-
-            throw new Exception("Command failed: {$command}. Error: {$errorOutput}");
+            throw new Exception("Deploy script failed: {$errorOutput}");
         }
 
-        Log::info("Command executed successfully", [
-            'command_key' => $commandKey,
-            'command' => $command,
-        ]);
+        Log::info('Deploy script completed successfully', ['output' => $output]);
 
         return [
             'status' => 'success',
