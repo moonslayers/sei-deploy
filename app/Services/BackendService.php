@@ -108,6 +108,8 @@ class BackendService
             'config_cache' => 'php artisan config:cache',
             'route_cache' => 'php artisan route:cache',
             'migrate' => 'php artisan migrate --force',
+            'queue' => 'php artisan queue:restart',
+            'sleep' => 'sleep 10',
         ];
 
         foreach ($commands as $key => $command) {
