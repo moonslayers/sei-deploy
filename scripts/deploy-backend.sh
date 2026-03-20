@@ -34,4 +34,8 @@ php artisan route:cache || exit 1
 echo "Ejecutando migraciones..."
 php artisan migrate --force || exit 1
 
+echo "Reiniciando workers..."
+php artisan queue:restart || exit 1
+sleep 10
+
 echo "Deploy completado exitosamente"
