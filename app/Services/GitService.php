@@ -245,7 +245,7 @@ class GitService
                 ];
 
                 Log::info("Rsync deployment completed for {$project}");
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 Log::error("Failed to deploy {$project}", [
                     'error' => $e->getMessage(),
                 ]);
