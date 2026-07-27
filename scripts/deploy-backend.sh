@@ -1,10 +1,12 @@
 #!/bin/bash
-# Usage: ./deploy-backend.sh <backend_path> <github_user> <github_token> <repo_full_name>
+# Usage: ./deploy-backend.sh <backend_path> <github_user> <github_token> <repo_full_name> [repo_path]
+# repo_path defaults to backend_path for backward compatibility with single-directory repos.
 
 BACKEND_PATH=$1
 GITHUB_USER=$2
 GITHUB_TOKEN=$3
 REPO_FULL_NAME=$4
+REPO_PATH=${5:-$BACKEND_PATH}
 
 cd "$BACKEND_PATH" || exit 1
 
@@ -19,7 +21,7 @@ set +a
 
 echo "Iniciando deploy del backend..."
 
-git pull "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${REPO_FULL_NAME}.git" main || exit 1
+(cd "$REPO_PATH" && git pull "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${REPO_FULL_NAME}.git" main) || exit 1
 
 echo "Limpiando cache..."
 php artisan cache:clear || exit 1

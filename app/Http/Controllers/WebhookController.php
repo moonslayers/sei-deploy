@@ -193,19 +193,17 @@ class WebhookController extends Controller
                 'timestamp' => now()->toIso8601String(),
             ]);
 
-            $configuredBackends = env('BACKEND_PROJECTS', '');
+            $backendList = config('sei.backends', []);
             
-            if (empty($configuredBackends)) {
-                Log::error('BACKEND_PROJECTS not configured');
+            if (empty($backendList)) {
+                Log::error('No backends configured in config/sei.php');
                 
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No backends configured',
-                    'error' => 'BACKEND_PROJECTS environment variable is empty',
+                    'error' => 'Backend list is empty in config/sei.php',
                 ], 500);
             }
-
-            $backendList = array_map('trim', explode(',', $configuredBackends));
 
             $matchedBackend = null;
             $directoryName = null;
@@ -231,7 +229,16 @@ class WebhookController extends Controller
                 ], 400);
             }
 
+            $backendPaths = config('sei.backend_paths', []);
+            $directoryName = $backendPaths[$matchedBackend] ?? $directoryName;
+
+            $repoDirectoryName = $directoryName;
+            if (isset($backendPaths[$matchedBackend])) {
+                $repoDirectoryName = dirname($directoryName);
+            }
+
             $backendPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $directoryName;
+            $repoPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $repoDirectoryName;
 
             if (! is_dir($backendPath)) {
                 Log::error('Backend directory not found', [
@@ -247,7 +254,7 @@ class WebhookController extends Controller
                 ], 400);
             }
 
-            $result = $this->backendService->updateBackend($matchedBackend, $backendPath);
+            $result = $this->backendService->updateBackend($matchedBackend, $repoPath, $backendPath);
 
             if ($result['status'] === 'error') {
                 return response()->json($result, 500);

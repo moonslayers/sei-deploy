@@ -206,14 +206,12 @@ class GitService
 
     public function deployAllFrontends(): array
     {
-        $projects = env('FRONTEND_PROJECTS', '');
+        $projectList = config('sei.frontends', []);
 
-        if (empty($projects)) {
-            Log::info('No frontends configured for automatic deployment');
+        if (empty($projectList)) {
+            Log::info('No frontends configured in config/sei.php');
             return [];
         }
-
-        $projectList = array_map('trim', explode(',', $projects));
         $results = [];
 
         foreach ($projectList as $project) {

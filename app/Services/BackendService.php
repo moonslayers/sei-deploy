@@ -23,17 +23,20 @@ class BackendService
         $this->gitUserEmail = env('GIT_USER_EMAIL', 'deploy@server.com');
     }
 
-    public function updateBackend(string $repoFullName, string $backendPath): array
+    public function updateBackend(string $repoFullName, string $repoPath, ?string $backendPath = null): array
     {
+        $backendPath = $backendPath ?? $repoPath;
+
         Log::info("Starting backend update for {$repoFullName}", [
-            'path' => $backendPath,
+            'repo_path' => $repoPath,
+            'backend_path' => $backendPath,
         ]);
 
         $results = [];
 
         try {
-            $results['git_pull'] = $this->pullBackend($repoFullName, $backendPath);
-            $results['artisan_commands'] = $this->executeArtisanCommands($backendPath, $repoFullName);
+            $results['git_pull'] = $this->pullBackend($repoFullName, $repoPath);
+            $results['artisan_commands'] = $this->executeArtisanCommands($backendPath, $repoFullName, $repoPath);
 
             Log::info("Backend update completed successfully for {$repoFullName}");
 
@@ -57,12 +60,12 @@ class BackendService
         }
     }
 
-    private function pullBackend(string $repoFullName, string $backendPath): array
+    private function pullBackend(string $repoFullName, string $repoPath): array
     {
         Log::info("Starting git pull for backend {$repoFullName}");
 
         $repoUrl = $this->getRepoUrlWithCredentials($repoFullName);
-        $workingDir = $backendPath;
+        $workingDir = $repoPath;
         $fullCommand = "cd {$workingDir} && git pull {$repoUrl} main 2>&1";
 
         exec($fullCommand, $output, $returnCode);
@@ -95,7 +98,7 @@ class BackendService
         return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
-    private function executeArtisanCommands(string $backendPath, string $repoFullName): array
+    private function executeArtisanCommands(string $backendPath, string $repoFullName, string $repoPath): array
     {
         Log::info("Executing deploy script for backend", ['path' => $backendPath]);
 
@@ -103,7 +106,7 @@ class BackendService
         $githubUser = $this->githubUser;
         $githubToken = $this->githubToken;
 
-        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} 2>&1";
+        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} {$repoPath} 2>&1";
 
         exec($command, $output, $returnCode);
 
