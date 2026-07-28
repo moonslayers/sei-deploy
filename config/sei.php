@@ -59,7 +59,7 @@ return [
         'pmr-frontend',
         'sagem-frontend',
         'sidi-frontend',
-        'vdei-ui',
+        'vdin-ui',
     ],
 
 ];
