@@ -45,7 +45,7 @@ class WebhookController extends Controller
             }
 
             if ($project !== null) {
-                $projectPath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $project;
+                $projectPath = dirname(base_path()).DIRECTORY_SEPARATOR.'sei-compilados'.DIRECTORY_SEPARATOR.$project;
                 if (! is_dir($projectPath)) {
                     Log::error('Project folder not found in compiled repository', [
                         'project' => $project,
@@ -92,7 +92,6 @@ class WebhookController extends Controller
             ], 500);
         }
     }
-
 
     public function updateDeploy(Request $request): JsonResponse
     {
@@ -194,10 +193,10 @@ class WebhookController extends Controller
             ]);
 
             $backendList = config('sei.backends', []);
-            
+
             if (empty($backendList)) {
                 Log::error('No backends configured in config/sei.php');
-                
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No backends configured',
@@ -209,7 +208,7 @@ class WebhookController extends Controller
             $directoryName = null;
 
             foreach ($backendList as $backend) {
-                if (str_ends_with($backend, '/' . $repoName) || $backend === $repoName) {
+                if (str_ends_with($backend, '/'.$repoName) || $backend === $repoName) {
                     $matchedBackend = $backend;
                     $directoryName = basename($backend);
                     break;
@@ -237,8 +236,8 @@ class WebhookController extends Controller
                 $repoDirectoryName = dirname($directoryName);
             }
 
-            $backendPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $directoryName;
-            $repoPath = dirname(base_path()) . DIRECTORY_SEPARATOR . $repoDirectoryName;
+            $backendPath = dirname(base_path()).DIRECTORY_SEPARATOR.$directoryName;
+            $repoPath = dirname(base_path()).DIRECTORY_SEPARATOR.$repoDirectoryName;
 
             if (! is_dir($backendPath)) {
                 Log::error('Backend directory not found', [

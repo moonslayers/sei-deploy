@@ -126,7 +126,7 @@ class GitService
 
     public function pullCompiledRepo(): array
     {
-        $compiledRepoPath = dirname($this->baseDir) . DIRECTORY_SEPARATOR . 'sei-compilados';
+        $compiledRepoPath = dirname($this->baseDir).DIRECTORY_SEPARATOR.'sei-compilados';
 
         Log::info("Starting git pull for compiled repository at {$compiledRepoPath}");
 
@@ -166,13 +166,11 @@ class GitService
         return $output[0] ?? 'unknown';
     }
 
-
-
     public function deployToFrontend(string $projectFolder): array
     {
         Log::info("Starting deployment for {$projectFolder}");
 
-        $sourcePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $projectFolder;
+        $sourcePath = dirname(base_path()).DIRECTORY_SEPARATOR.'sei-compilados'.DIRECTORY_SEPARATOR.$projectFolder;
         $destPath = "/var/www/{$projectFolder}";
 
         if (! is_dir($sourcePath)) {
@@ -210,6 +208,7 @@ class GitService
 
         if (empty($projectList)) {
             Log::info('No frontends configured in config/sei.php');
+
             return [];
         }
         $results = [];
@@ -218,7 +217,7 @@ class GitService
             try {
                 Log::info("Starting rsync deployment for {$project}");
 
-                $sourcePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "sei-compilados" . DIRECTORY_SEPARATOR . $project;
+                $sourcePath = dirname(base_path()).DIRECTORY_SEPARATOR.'sei-compilados'.DIRECTORY_SEPARATOR.$project;
                 $destPath = "/var/www/{$project}";
 
                 if (! is_dir($sourcePath)) {
@@ -233,7 +232,7 @@ class GitService
                 exec($rsyncCommand, $output, $returnCode);
 
                 if ($returnCode !== 0) {
-                    throw new Exception("Rsync failed: " . implode("\n", $output));
+                    throw new Exception('Rsync failed: '.implode("\n", $output));
                 }
 
                 $results[$project] = [
