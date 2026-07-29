@@ -15,7 +15,7 @@ El sistema permite actualizar automáticamente backends Laravel mediante webhook
    - `php artisan config:cache`
    - `php artisan route:cache`
 4. **Migraciones**:
-   - `php artisan migrate --force`
+   - `php artisan migrate --force` (comando por defecto, configurable por backend)
 
 ## Requisitos Previos
 
@@ -29,8 +29,54 @@ El sistema permite actualizar automáticamente backends Laravel mediante webhook
 ### En el Repositorio del Backend
 
 1. Debe ser un proyecto Laravel
-2. Debe tener migraciones funcionales (si usa el comando migrate)
+2. Debe tener migraciones funcionales para el comando configurado (ver [Comandos de Migración Personalizados](#comandos-de-migración-personalizados-por-backend))
 3. Debe tener permisos de escritura en los directorios de cache y logs
+
+## Comandos de Migración Personalizados por Backend
+
+El sistema permite configurar comandos de migración personalizados para cada backend. Esto es útil cuando un backend requiere un comando diferente al default `php artisan migrate --force`.
+
+### Configuración en `config/sei.php`
+
+El archivo `config/sei.php` contiene la clave `backend_commands` donde puedes especificar comandos personalizados:
+
+```php
+'backend_commands' => [
+    'moonslayers/vdin' => 'migrate:fresh --seed',
+    // 'moonslayers/outro-backend' => 'migrate --force --path=database/other',
+],
+```
+
+### Cómo funciona
+
+- **Clave**: Nombre completo del repositorio (`organizacion/nombre-repo`)
+- **Valor**: Comando artisan migrate sin el prefijo `php artisan`
+- **Comando por defecto**: `migrate --force` (si el backend no está configurado)
+
+### Ejemplo para vdin
+
+```php
+'backend_commands' => [
+    'moonslayers/vdin' => 'migrate:fresh --seed',
+],
+```
+
+Esto ejecutará: `php artisan migrate:fresh --seed`
+
+### Agregar un nuevo comando personalizado
+
+1. Edita `config/sei.php`
+2. Agrega una entrada en `backend_commands`:
+   ```php
+   'backend_commands' => [
+       'moonslayers/vdin' => 'migrate:fresh --seed',
+       'moonslayers/nuevo-backend' => 'migrate --force --path=database/migrations/other',
+   ],
+   ```
+3. Ejecuta `php artisan config:clear` para aplicar los cambios
+4. El próximo despliegue usará el nuevo comando
+
+**Nota**: Esta configuración es opcional. Los backends sin entrada en `backend_commands` continúan usando el comando por defecto.
 
 ## Configuración Paso a Paso
 
@@ -377,14 +423,14 @@ php artisan migrate:status
 3. Verifica que `GITHUB_USER` y `GITHUB_TOKEN` estén configurados correctamente
 4. Asegúrate de que el token tenga permisos de lectura del repo
 
-### Error 500: "Command failed: php artisan migrate --force"
+### Error 500: "Command failed: php artisan migrate --force" (o comando personalizado)
 
 **Error:**
 ```json
 {
   "status": "error",
   "message": "Failed to update backend",
-  "error": "Command failed: php artisan migrate --force. Error: SQLSTATE[HY000] [2002] Connection refused",
+  "error": "Command failed: php artisan migrate:fresh --seed. Error: SQLSTATE[HY000] [2002] Connection refused",
   "results": {
     "git_pull": {"status": "success", "output": [...]},
     "artisan_commands": {
@@ -403,9 +449,10 @@ php artisan migrate:status
 **Solución:**
 1. Revisa los logs del servidor: `tail -f storage/logs/laravel.log`
 2. Verifica que el .env del backend esté configurado correctamente
-3. Asegúrate de que la base de datos esté accesible
-4. Verifica permisos en `storage/` y `bootstrap/cache/`
-5. Prueba ejecutar el comando manualmente: `cd ../sagem-backend && php artisan migrate --force`
+3. Verifica que el comando configurado en `backend_commands` (si existe) sea válido
+4. Asegúrate de que la base de datos esté accesible
+5. Verifica permisos en `storage/` y `bootstrap/cache/`
+6. Prueba ejecutar el comando manualmente: `cd ../sagem-backend && php artisan migrate:fresh --seed`
 
 ### Error 401: "Invalid signature"
 
