@@ -44,6 +44,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Backend Custom Commands
+    |--------------------------------------------------------------------------
+    |
+    | Override the default artisan migrate command per backend.
+    | If a backend is not listed here, it will use the default:
+    |   php artisan migrate --force
+    |
+    | Key: the full repo name as listed in 'backends'.
+    | Value: the artisan migrate command (without "php artisan" prefix).
+    |
+    | Example: 'moonslayers/vdin' => 'migrate:fresh --seed'
+    | will run: php artisan migrate:fresh --seed
+    |
+    */
+
+    'backend_commands' => [
+        'moonslayers/vdin' => 'migrate:fresh --seed',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Frontend Projects
     |--------------------------------------------------------------------------
     |

@@ -98,15 +98,26 @@ class BackendService
         return "https://{$this->githubUser}:{$this->githubToken}@github.com/{$repo}.git";
     }
 
+    protected function getMigrateCommand(string $repoFullName): string
+    {
+        $commands = config('sei.backend_commands', []);
+
+        return $commands[$repoFullName] ?? 'migrate --force';
+    }
+
     private function executeArtisanCommands(string $backendPath, string $repoFullName, string $repoPath): array
     {
-        Log::info("Executing deploy script for backend", ['path' => $backendPath]);
+        Log::info('Executing deploy script for backend', ['path' => $backendPath]);
 
         $scriptPath = base_path('scripts/deploy-backend.sh');
         $githubUser = $this->githubUser;
         $githubToken = $this->githubToken;
+        $migrateCommand = $this->getMigrateCommand($repoFullName);
 
-        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} {$repoPath} 2>&1";
+        Log::info("Using migrate command for {$repoFullName}", ['command' => $migrateCommand]);
+
+        $escapedMigrateCommand = escapeshellarg($migrateCommand);
+        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} {$repoPath} {$escapedMigrateCommand} 2>&1";
 
         exec($command, $output, $returnCode);
 

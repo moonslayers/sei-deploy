@@ -1,12 +1,14 @@
 #!/bin/bash
-# Usage: ./deploy-backend.sh <backend_path> <github_user> <github_token> <repo_full_name> [repo_path]
+# Usage: ./deploy-backend.sh <backend_path> <github_user> <github_token> <repo_full_name> [repo_path] [migrate_command]
 # repo_path defaults to backend_path for backward compatibility with single-directory repos.
+# migrate_command defaults to "migrate --force" if not provided.
 
 BACKEND_PATH=$1
 GITHUB_USER=$2
 GITHUB_TOKEN=$3
 REPO_FULL_NAME=$4
 REPO_PATH=${5:-$BACKEND_PATH}
+MIGRATE_COMMAND=${6:-"migrate --force"}
 
 cd "$BACKEND_PATH" || exit 1
 
@@ -33,8 +35,8 @@ php artisan config:cache || exit 1
 php artisan config:clear || exit 1
 php artisan route:cache || exit 1
 
-echo "Ejecutando migraciones..."
-php artisan migrate --force || exit 1
+echo "Ejecutando migraciones ($MIGRATE_COMMAND)..."
+php artisan $MIGRATE_COMMAND || exit 1
 
 echo "Reiniciando workers..."
 php artisan queue:restart || exit 1
