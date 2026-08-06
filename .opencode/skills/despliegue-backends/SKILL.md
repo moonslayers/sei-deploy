@@ -1,6 +1,6 @@
 ---
 name: despliegue-backends
-description: Arquitectura del sistema de despliegue automático de backends en sei-deploy. Cubre el flujo webhook→servicio→script, configuración, cómo agregar backends, comandos de migración personalizados, y precauciones de shell escaping.
+description: Arquitectura del sistema de despliegue automático de backends en sei-deploy. Cubre el flujo webhook→servicio→script, configuración, cómo agregar backends, comandos de migración personalizados, instalación de dependencias de Composer, y precauciones de shell escaping.
 license: MIT
 compatibility: Laravel 11+, PHP 8.2+
 ---
@@ -11,7 +11,7 @@ Documenta la arquitectura completa del sistema de despliegue automático de back
 
 ## When to use me
 
-Triggers: deploy, despliegue, backends, webhook, deploy-backend.sh, BackendService, config/sei.php, agregar backend, comandos de migración, migrate:fresh, migrate --force, shell escaping, escapeshellarg
+Triggers: deploy, despliegue, backends, webhook, deploy-backend.sh, BackendService, config/sei.php, agregar backend, comandos de migración, migrate:fresh, migrate --force, shell escaping, escapeshellarg, composer, composer install, librerías, dependencias
 
 ## Arquitectura del Sistema de Despliegue
 
@@ -32,7 +32,9 @@ El sistema opera en 4 etapas:
 
 4. **deploy-backend.sh** → Script bash ejecutado en el servidor
    - Recibe 6 parámetros: BACKEND_PATH, GITHUB_USER, GITHUB_TOKEN, REPO_FULL_NAME, REPO_PATH, MIGRATE_COMMAND
-   - Ejecuta: git pull → cache clear → cache regenerate → migrate → queue restart
+   - Ejecuta: git pull → composer install → cache clear → cache regenerate → migrate → queue restart
+   - `composer install` corre **siempre** en cada deploy, en el directorio del backend (`$BACKEND_PATH`), con los flags `--no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader`
+   - **REQUISITO PREVIO**: el servidor debe tener Composer instalado. Si no está disponible, el deploy falla visiblemente (comportamiento deseado) para evitar desplegar código que depende de librerías no instaladas
 
 ### Archivos clave
 

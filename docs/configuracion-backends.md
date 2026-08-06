@@ -7,14 +7,18 @@ Esta guía explica cómo configurar los backends Laravel para usar el sistema de
 El sistema permite actualizar automáticamente backends Laravel mediante webhooks cuando se hace push a la rama `main` del repositorio. El proceso ejecuta:
 
 1. **Git pull** del branch `main` con credenciales inline
-2. **Limpieza de cache**:
+2. **Composer install**:
+   - `composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader`
+   - Instala las dependencias de producción definidas en `composer.json`/`composer.lock`
+   - Se ejecuta siempre en cada deploy, sin importar si `composer.lock` cambió
+3. **Limpieza de cache**:
    - `php artisan cache:clear`
    - `php artisan config:clear`
    - `php artisan route:clear`
-3. **Regeneración de cache**:
+4. **Regeneración de cache**:
    - `php artisan config:cache`
    - `php artisan route:cache`
-4. **Migraciones**:
+5. **Migraciones**:
    - `php artisan migrate --force` (comando por defecto, configurable por backend)
 
 ## Requisitos Previos
@@ -338,6 +342,7 @@ Deberías ver logs como:
 [2025-01-27 10:30:00] production.INFO: Webhook received: update backend {"repository":"moonslayers/sagem-backend","timestamp":"2025-01-27T10:30:00+00:00"}
 [2025-01-27 10:30:01] production.INFO: Starting git pull for backend moonslayers/sagem-backend
 [2025-01-27 10:30:05] production.INFO: Git pull completed for backend moonslayers/sagem-backend
+[2025-01-27 10:30:09] production.INFO: Command executed successfully {"command_key":"composer_install","command":"composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader"}
 [2025-01-27 10:30:05] production.INFO: Executing artisan commands for backend {"path":"/path/to/sagem-backend"}
 [2025-01-27 10:30:06] production.INFO: Command executed successfully {"command_key":"cache_clear","command":"php artisan cache:clear"}
 [2025-01-27 10:30:06] production.INFO: Command executed successfully {"command_key":"config_clear","command":"php artisan config:clear"}
@@ -453,6 +458,26 @@ php artisan migrate:status
 4. Asegúrate de que la base de datos esté accesible
 5. Verifica permisos en `storage/` y `bootstrap/cache/`
 6. Prueba ejecutar el comando manualmente: `cd ../sagem-backend && php artisan migrate:fresh --seed`
+
+### Error 500: "Command failed: composer install"
+
+**Error:**
+```json
+{
+  "status": "error",
+  "message": "Failed to update backend",
+  "error": "Command failed: composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader. Error: The Process class relies on proc_open, which is not available on your PHP installation"
+}
+```
+
+**Causa:** Composer no está instalado en el servidor, o el `composer.json`/`composer.lock` del backend es inválido.
+
+**Solución:**
+1. Verifica que composer esté instalado: `composer --version`
+2. Si no está instalado, instálalo siguiendo la documentación oficial de Composer
+3. Verifica que el directorio del backend tenga un `composer.json` válido: `cd ../sagem-backend && cat composer.json`
+4. Prueba ejecutar composer install manualmente para diagnosticar el error: `cd ../sagem-backend && composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader`
+5. Verifica permisos de escritura en el directorio `vendor/` del backend
 
 ### Error 401: "Invalid signature"
 
