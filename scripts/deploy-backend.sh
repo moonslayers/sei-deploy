@@ -2,6 +2,7 @@
 # Usage: ./deploy-backend.sh <backend_path> <github_user> <github_token> <repo_full_name> [repo_path] [migrate_command]
 # repo_path defaults to backend_path for backward compatibility with single-directory repos.
 # migrate_command defaults to "migrate --force" if not provided.
+# Pipeline: git pull -> composer install -> cache clear -> cache regenerate -> migrate -> queue restart
 
 BACKEND_PATH=$1
 GITHUB_USER=$2
@@ -24,6 +25,9 @@ set +a
 echo "Iniciando deploy del backend..."
 
 (cd "$REPO_PATH" && git pull "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${REPO_FULL_NAME}.git" main) || exit 1
+
+echo "Instalando dependencias de Composer..."
+composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader || exit 1
 
 echo "Limpiando cache..."
 php artisan cache:clear || exit 1
