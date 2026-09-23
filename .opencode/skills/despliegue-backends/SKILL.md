@@ -1,6 +1,6 @@
 ---
 name: despliegue-backends
-description: Arquitectura del sistema de despliegue automático de backends en sei-deploy. Cubre el flujo webhook→servicio→script, configuración, cómo agregar backends, comandos de migración personalizados, instalación de dependencias de Composer, y precauciones de shell escaping.
+description: Arquitectura del sistema de despliegue automático de backends en sei-deploy. Cubre el flujo webhook→servicio→script, configuración, cómo agregar backends, comandos de migración personalizados, instalación de dependencias de Composer, precauciones de shell escaping, y troubleshooting de deploy 500 truncado.
 license: MIT
 compatibility: Laravel 11+, PHP 8.2+
 ---
@@ -11,7 +11,7 @@ Documenta la arquitectura completa del sistema de despliegue automático de back
 
 ## When to use me
 
-Triggers: deploy, despliegue, backends, webhook, deploy-backend.sh, BackendService, config/sei.php, agregar backend, comandos de migración, migrate:fresh, migrate --force, shell escaping, escapeshellarg, composer, composer install, librerías, dependencias
+Triggers: deploy, despliegue, backends, webhook, deploy-backend.sh, BackendService, config/sei.php, agregar backend, comandos de migración, migrate:fresh, migrate --force, shell escaping, escapeshellarg, composer, composer install, librerías, dependencias, deploy 500, webhook 500, deploy truncado, composer truncated, OOM deploy, fakerphp faker, migrate:fresh --seed vdin
 
 ## Arquitectura del Sistema de Despliegue
 
@@ -33,7 +33,7 @@ El sistema opera en 4 etapas:
 4. **deploy-backend.sh** → Script bash ejecutado en el servidor
    - Recibe 6 parámetros: BACKEND_PATH, GITHUB_USER, GITHUB_TOKEN, REPO_FULL_NAME, REPO_PATH, MIGRATE_COMMAND
    - Ejecuta: git pull → composer install → cache clear → cache regenerate → migrate → queue restart
-   - `composer install` corre **siempre** en cada deploy, en el directorio del backend (`$BACKEND_PATH`), con los flags `--no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader`
+    - `composer install` corre **siempre** en cada deploy, en el directorio del backend (`$BACKEND_PATH`), con los flags `--no-interaction --prefer-dist --no-progress --optimize-autoloader`
    - **REQUISITO PREVIO**: el servidor debe tener Composer instalado. Si no está disponible, el deploy falla visiblemente (comportamiento deseado) para evitar desplegar código que depende de librerías no instaladas
 
 ### Archivos clave
@@ -102,6 +102,32 @@ $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$rep
 // ❌ INCORRECTO - pierde --seed por word splitting
 $command = "bash {$scriptPath} ... {$migrateCommand} 2>&1";
 ```
+
+## Troubleshooting: Deploy 500 truncado
+
+### Síntoma
+
+Webhook retorna 500 con `Deploy script failed`. El output de composer se trunca a mitad (ej: `barryvdh/laravel-dompdf ....` sin completar). Tiempos anormales (~9s en vez de ~24s).
+
+### Cadena de captura
+
+`deploy-backend.sh || exit 1` → `BackendService exec 2>&1` → `Exception` → JSON 500.
+
+No hay truncado intencional: es muerte abrupta del proceso. El script falla y el error se propaga como excepción.
+
+### Diagnóstico (checks en orden)
+
+1. **OOM killer**: `dmesg | grep -i oom` + `php -i | grep memory_limit`
+2. **Permisos bootstrap/cache**: `ls -la bootstrap/cache/` — debe mostrar owner `www-data`
+3. **Error real**: `php artisan package:discover --ansi` manual + `tail storage/logs/laravel.log`
+
+### Quirk: vdin y faker
+
+`database/seeders/DatabaseSeeder.php:91` usa `fake()` que necesita `fakerphp/faker` (dev dependency). Con `--no-dev` se elimina y `migrate:fresh --seed` falla (solo vdin, destructivo).
+
+**Decisión actual**: deploy sin `--no-dev` para incluir faker.
+
+**Alternativa futura**: mover `fakerphp/faker` a `require` en vez de `require-dev`.
 
 ## Testing
 

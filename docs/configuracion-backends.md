@@ -8,7 +8,7 @@ El sistema permite actualizar automáticamente backends Laravel mediante webhook
 
 1. **Git pull** del branch `main` con credenciales inline
 2. **Composer install**:
-   - `composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader`
+   - `composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader`
    - Instala las dependencias de producción definidas en `composer.json`/`composer.lock`
    - Se ejecuta siempre en cada deploy, sin importar si `composer.lock` cambió
 3. **Limpieza de cache**:
