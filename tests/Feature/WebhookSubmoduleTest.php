@@ -8,6 +8,28 @@ use Tests\TestCase;
 
 class WebhookSubmoduleTest extends TestCase
 {
+    private string $projectDir;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->projectDir = dirname(base_path()).DIRECTORY_SEPARATOR.'sei-compilados'.DIRECTORY_SEPARATOR.'pmr-frontend';
+
+        if (! is_dir($this->projectDir)) {
+            mkdir($this->projectDir, 0755, true);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_dir($this->projectDir)) {
+            rmdir($this->projectDir);
+        }
+
+        parent::tearDown();
+    }
+
     public function test_update_submodule_with_valid_signature(): void
     {
         $gitServiceMock = $this->mock(GitService::class);
