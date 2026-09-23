@@ -27,7 +27,7 @@ echo "Iniciando deploy del backend..."
 (cd "$REPO_PATH" && git pull "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${REPO_FULL_NAME}.git" main) || exit 1
 
 echo "Instalando dependencias de Composer..."
-composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader || exit 1
+composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader || exit 1
 
 echo "Limpiando cache..."
 php artisan cache:clear || exit 1
