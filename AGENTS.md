@@ -24,6 +24,7 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 
 ## Gotchas
 
+- `composer.json` pins `config.platform.php = 8.3.0`: regenerate `composer.lock` with it in place. A lock generated on newer PHP resolves Symfony 8.x (requires PHP >= 8.4.1) and breaks `composer install` on CI/server (PHP 8.3). Detail: `.opencode/skills/despliegue-backends/references/self-deploy-composer.md`.
 - `composer install` in `deploy-backend.sh` intentionally omits `--no-dev` (`--no-interaction --prefer-dist --no-progress --optimize-autoloader` only): `vdin` seeds call `fake()`, needing `fakerphp/faker` from require-dev; `--no-dev` breaks `migrate:fresh --seed` with truncated 500. Diagnose via `dmesg | grep -i oom`, `ls -la bootstrap/cache/` (owner `www-data`), `tail storage/logs/laravel.log`.
 - Shell escaping: `migrate` commands contain spaces (`migrate:fresh --seed`); always pass via `escapeshellarg()` into `exec()`/`deploy-backend.sh $6`. Never interpolate new `exec("cd ...")` args unescaped (`BackendService`, `GitService` already do this unsafely elsewhere — don't copy).
 - Webhook auth: raw body signed RSA-2048/SHA256 + base64, header `X-Webhook-Signature` (or `signature` body field); JSON must include fresh `timestamp` or 401. In tests sign with `Tests\Helpers\WebhookHelper::createSignedPayload()` (`tests/keys/private_test.pem`, `json_encode(..., JSON_UNESCAPED_SLASHES)`); `PUBLIC_KEY` (base64) comes from `.env.testing`.
