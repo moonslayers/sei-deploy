@@ -23,7 +23,7 @@ class WebhookSubmoduleTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (is_dir($this->projectDir)) {
+        if (is_dir($this->projectDir) && count(scandir($this->projectDir)) === 2) {
             rmdir($this->projectDir);
         }
 

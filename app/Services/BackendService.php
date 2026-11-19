@@ -45,7 +45,7 @@ class BackendService
                 'message' => 'Backend updated successfully',
                 'results' => $results,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error("Failed to update backend {$repoFullName}", [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

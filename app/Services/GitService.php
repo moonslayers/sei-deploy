@@ -69,7 +69,7 @@ class GitService
                     Log::info('Git name configured', ['name' => $this->gitUserName]);
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Exception while setting git identity', [
                 'error' => $e->getMessage(),
             ]);
@@ -106,6 +106,30 @@ class GitService
         $output = $this->executeGitCommand("git pull {$repoUrl} main");
 
         Log::info('Git pull completed successfully', ['output' => $output]);
+
+        return $output;
+    }
+
+    public function installMainDependencies(): array
+    {
+        Log::info('Starting composer install for main repository');
+
+        $workingDir = $this->baseDir;
+        $command = 'composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader';
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && '.$command.' 2>&1';
+
+        exec($fullCommand, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $errorOutput = implode("\n", $output);
+            Log::error('Composer install failed', [
+                'output' => $errorOutput,
+                'return_code' => $returnCode,
+            ]);
+            throw new Exception("Composer install failed: {$errorOutput}");
+        }
+
+        Log::info('Composer install completed successfully', ['output' => $output]);
 
         return $output;
     }

@@ -14,6 +14,9 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
             ->andReturn(['Pull successful']);
+        $gitServiceMock->shouldReceive('installMainDependencies')
+            ->once()
+            ->andReturn(['Composer install successful']);
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andReturn(['Repository updated successfully']);
@@ -128,6 +131,9 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
             ->andReturn(['Pull successful']);
+        $gitServiceMock->shouldReceive('installMainDependencies')
+            ->once()
+            ->andReturn(['Composer install successful']);
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andThrow(new \Exception('Repository update failed'));
