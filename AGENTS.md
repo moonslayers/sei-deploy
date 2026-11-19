@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Laravel 12 / PHP ^8.2. Webhook-driven deploy server (pulls repos, runs `deploy-backend.sh`, rsyncs frontends to `/var/www`).
+Laravel 13 / PHP ^8.3. Webhook-driven deploy server (pulls repos, runs `deploy-backend.sh`, rsyncs frontends to `/var/www`).
 
 ## Commands
 
@@ -33,7 +33,7 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 
 ### Server prerequisites
 
-- PHP ^8.2, Laravel 12, Composer, git, rsync; sibling-dir layout `../<basename>` for backends and `../sei-compilados` for frontends; backend dirs must contain `.env`.
+- PHP ^8.3, Laravel 13, Composer, git, rsync; sibling-dir layout `../<basename>` for backends and `../sei-compilados` for frontends; backend dirs must contain `.env`.
 - Webhook RSA-2048/SHA256 public key configured via `PUBLIC_KEY` (base64) in `.env`.
 
 ### Environment variables
