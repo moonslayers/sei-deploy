@@ -13,10 +13,16 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock = $this->mock(GitService::class);
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
+            ->ordered()
             ->andReturn(['Pull successful']);
         $gitServiceMock->shouldReceive('installMainDependencies')
             ->once()
+            ->ordered()
             ->andReturn(['Composer install successful']);
+        $gitServiceMock->shouldReceive('runMigrations')
+            ->once()
+            ->ordered()
+            ->andReturn(['Migrations successful']);
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andReturn(['Repository updated successfully']);
@@ -130,10 +136,16 @@ class WebhookDeployTest extends TestCase
         $gitServiceMock = $this->mock(GitService::class);
         $gitServiceMock->shouldReceive('pullMainRepo')
             ->once()
+            ->ordered()
             ->andReturn(['Pull successful']);
         $gitServiceMock->shouldReceive('installMainDependencies')
             ->once()
+            ->ordered()
             ->andReturn(['Composer install successful']);
+        $gitServiceMock->shouldReceive('runMigrations')
+            ->once()
+            ->ordered()
+            ->andReturn(['Migrations successful']);
         $gitServiceMock->shouldReceive('pullCompiledRepo')
             ->once()
             ->andThrow(new \Exception('Repository update failed'));

@@ -134,6 +134,30 @@ class GitService
         return $output;
     }
 
+    public function runMigrations(): array
+    {
+        Log::info('Starting migrations for main repository');
+
+        $workingDir = $this->baseDir;
+        $command = 'php artisan migrate --force';
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && '.$command.' 2>&1';
+
+        exec($fullCommand, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $errorOutput = implode("\n", $output);
+            Log::error('Migrations failed', [
+                'output' => $errorOutput,
+                'return_code' => $returnCode,
+            ]);
+            throw new Exception("Migrations failed: {$errorOutput}");
+        }
+
+        Log::info('Migrations completed successfully', ['output' => $output]);
+
+        return $output;
+    }
+
     private function getRepoUrlWithCredentials(): string
     {
         if (empty($this->githubUser) || empty($this->githubToken)) {

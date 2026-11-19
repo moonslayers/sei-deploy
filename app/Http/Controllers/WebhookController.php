@@ -117,6 +117,8 @@ class WebhookController extends Controller
 
             $composerOutput = $this->gitService->installMainDependencies();
 
+            $migrateOutput = $this->gitService->runMigrations();
+
             $compiledOutput = [];
             $deployOutputs = [];
             try {
@@ -141,6 +143,7 @@ class WebhookController extends Controller
                     'branch' => $branch,
                     'main_pull' => $output,
                     'composer_install' => $composerOutput,
+                    'migrate' => $migrateOutput,
                     'compiled_update' => $compiledOutput,
                     'deployments' => $deployOutputs,
                 ],
