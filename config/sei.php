@@ -22,6 +22,7 @@ return [
         'moonslayers/sagem-backend',
         'moonslayers/sidi-backend',
         'moonslayers/vdin',
+        'moonslayers/impulsabc-seiapp',
     ],
 
     /*
@@ -40,6 +41,7 @@ return [
     */
     'backend_paths' => [
         'moonslayers/vdin' => 'vdin/vdin-api',
+        'moonslayers/impulsabc-seiapp' => 'impulsabc-seiapp/apps/api',
     ],
 
     /*
@@ -81,6 +83,7 @@ return [
         'sagem-frontend',
         'sidi-frontend',
         'vdin-ui',
+        'impulsabc-admin',
     ],
 
 ];
