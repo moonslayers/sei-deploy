@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Frontend;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -32,13 +33,13 @@ class GitService
     {
         try {
             $workingDir = $this->baseDir;
-            $fullCommand = "cd {$workingDir} && git config --local user.email 2>&1";
+            $fullCommand = 'cd '.escapeshellarg($workingDir).' && git config --local user.email 2>&1';
             exec($fullCommand, $output, $returnCode);
 
-            $currentEmail = $returnCode === 0 ? trim(implode("\n", $output)) : '';
+            $currentEmail = $returnCode === 0 ? trim(implode('\\n', $output)) : '';
 
             if (empty($currentEmail)) {
-                $fullCommand = "cd {$workingDir} && git config --local user.email {$this->gitUserEmail} 2>&1";
+                $fullCommand = 'cd '.escapeshellarg($workingDir).' && git config --local user.email '.escapeshellarg($this->gitUserEmail).' 2>&1';
                 exec($fullCommand, $output, $returnCode);
 
                 if ($returnCode !== 0) {
@@ -51,13 +52,13 @@ class GitService
                 }
             }
 
-            $fullCommand = "cd {$workingDir} && git config --local user.name 2>&1";
+            $fullCommand = 'cd '.escapeshellarg($workingDir).' && git config --local user.name 2>&1';
             exec($fullCommand, $output, $returnCode);
 
-            $currentName = $returnCode === 0 ? trim(implode("\n", $output)) : '';
+            $currentName = $returnCode === 0 ? trim(implode('\\n', $output)) : '';
 
             if (empty($currentName)) {
-                $fullCommand = "cd {$workingDir} && git config --local user.name {$this->gitUserName} 2>&1";
+                $fullCommand = 'cd '.escapeshellarg($workingDir).' && git config --local user.name '.escapeshellarg($this->gitUserName).' 2>&1';
                 exec($fullCommand, $output, $returnCode);
 
                 if ($returnCode !== 0) {
@@ -79,7 +80,7 @@ class GitService
     private function executeGitCommand(string $command, ?string $path = null): array
     {
         $workingDir = $path ?? $this->baseDir;
-        $fullCommand = "cd {$workingDir} && {$command} 2>&1";
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && '.$command.' 2>&1';
 
         exec($fullCommand, $output, $returnCode);
 
@@ -103,7 +104,7 @@ class GitService
         Log::info('Starting git pull for main repository');
 
         $repoUrl = $this->getRepoUrlWithCredentials();
-        $output = $this->executeGitCommand("git pull {$repoUrl} main");
+        $output = $this->executeGitCommand('git pull '.escapeshellarg($repoUrl).' main');
 
         Log::info('Git pull completed successfully', ['output' => $output]);
 
@@ -130,6 +131,80 @@ class GitService
         }
 
         Log::info('Composer install completed successfully', ['output' => $output]);
+
+        return $output;
+    }
+
+    public function publishFilamentAssets(): array
+    {
+        $workingDir = $this->baseDir;
+
+        if (! is_dir($workingDir.'/vendor/filament')) {
+            Log::info('Filament not installed, skipping filament:assets');
+
+            return ['Skipped: Filament not installed'];
+        }
+
+        Log::info('Publishing Filament assets');
+
+        $command = 'php artisan filament:assets';
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && '.$command.' 2>&1';
+
+        exec($fullCommand, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $errorOutput = implode("\n", $output);
+            Log::error('Filament assets publish failed', [
+                'output' => $errorOutput,
+                'return_code' => $returnCode,
+            ]);
+            throw new Exception("Filament assets publish failed: {$errorOutput}");
+        }
+
+        Log::info('Filament assets published successfully', ['output' => $output]);
+
+        return $output;
+    }
+
+    public function buildFrontendAssets(): array
+    {
+        $workingDir = $this->baseDir;
+
+        if (! file_exists($workingDir.'/package.json')) {
+            Log::info('No package.json, skipping npm build');
+
+            return ['Skipped: no package.json'];
+        }
+
+        Log::info('Building frontend assets');
+
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && npm ci 2>&1';
+        exec($fullCommand, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $errorOutput = implode("\n", $output);
+            Log::error('npm ci failed', [
+                'output' => $errorOutput,
+                'return_code' => $returnCode,
+            ]);
+            throw new Exception("npm ci failed: {$errorOutput}");
+        }
+
+        $buildCommand = 'cd '.escapeshellarg($workingDir).' && npm run build 2>&1';
+        exec($buildCommand, $buildOutput, $buildReturnCode);
+
+        if ($buildReturnCode !== 0) {
+            $errorOutput = implode("\n", $buildOutput);
+            Log::error('npm run build failed', [
+                'output' => $errorOutput,
+                'return_code' => $buildReturnCode,
+            ]);
+            throw new Exception("npm run build failed: {$errorOutput}");
+        }
+
+        $output = array_merge($output, $buildOutput);
+
+        Log::info('Frontend assets built successfully', ['output' => $output]);
 
         return $output;
     }
@@ -179,7 +254,7 @@ class GitService
         Log::info("Starting git pull for compiled repository at {$compiledRepoPath}");
 
         $repoUrl = $this->getCompiledRepoUrlWithCredentials();
-        $output = $this->executeGitCommand("git pull {$repoUrl} main", $compiledRepoPath);
+        $output = $this->executeGitCommand('git pull '.escapeshellarg($repoUrl).' main', $compiledRepoPath);
 
         Log::info('Compiled repository pull completed successfully', ['output' => $output]);
 
@@ -252,10 +327,10 @@ class GitService
 
     public function deployAllFrontends(): array
     {
-        $projectList = config('sei.frontends', []);
+        $projectList = Frontend::all()->pluck('name')->all();
 
         if (empty($projectList)) {
-            Log::info('No frontends configured in config/sei.php');
+            Log::info('No frontends configured');
 
             return [];
         }
@@ -276,7 +351,7 @@ class GitService
                     throw new Exception("Destination folder {$destPath} does not exist");
                 }
 
-                $rsyncCommand = "rsync -av --delete {$sourcePath}/ {$destPath}/ 2>&1";
+                $rsyncCommand = 'rsync -av --delete '.escapeshellarg($sourcePath.'/').' '.escapeshellarg($destPath.'/').' 2>&1';
                 exec($rsyncCommand, $output, $returnCode);
 
                 if ($returnCode !== 0) {

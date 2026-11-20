@@ -366,7 +366,7 @@ PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei
 SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign webhook_private.pem -binary | base64)
 
 # Send request
-curl -X POST "http://localhost:8000/api/webhook/submodule" \
+curl -X POST "http://localhost:8019/api/webhook/submodule" \
   -H "Content-Type: application/json" \
   -H "X-Webhook-Signature: $SIGNATURE" \
   -d "$PAYLOAD"
@@ -379,7 +379,7 @@ PAYLOAD='{"timestamp":'$TIMESTAMP',"action":"update_submodule","repository":"sei
 SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -sign webhook_private.pem -binary | base64)
 
 # Send request
-curl -X POST "http://localhost:8000/api/webhook/submodule" \
+curl -X POST "http://localhost:8019/api/webhook/submodule" \
   -H "Content-Type: application/json" \
   -H "X-Webhook-Signature: $SIGNATURE" \
   -d "$PAYLOAD"
@@ -444,7 +444,7 @@ curl -X POST "http://localhost:8000/api/webhook/submodule" \
   sudo systemctl status apache2
   
   # For php artisan serve
-  php artisan serve --host=0.0.0.0 --port=8000
+  php artisan serve --host=0.0.0.0 --port=8019
   ```
 - Check if port is open: `netstat -tlnp | grep :80`
 - Check firewall rules

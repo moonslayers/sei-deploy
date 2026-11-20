@@ -152,8 +152,7 @@ class WebhookSubmoduleTest extends TestCase
             ->andReturn(['Repository updated successfully']);
 
         $gitServiceMock->shouldReceive('deployAllFrontends')
-            ->once()
-            ->andReturn(['deployments' => 'mocked']);
+            ->never();
 
         $gitServiceMock->shouldReceive('deployToFrontend')
             ->once()
