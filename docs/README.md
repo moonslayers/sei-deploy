@@ -24,10 +24,18 @@ Guía detallada para generar y configurar llaves RSA:
 
 ### [configuracion-backends.md](./configuracion-backends.md)
 Guía completa para configurar actualización automática de backends Laravel:
-- Configuración del servidor (BACKEND_PROJECTS)
+- Configuración del servidor (tabla `backends` / `config/sei.php`)
 - Configuración de cada backend (secrets, workflows)
 - Ejemplo paso a paso
 - Verificación del despliegue
+- Troubleshooting común
+
+### [despliegue-sei-deploy.md](./despliegue-sei-deploy.md)
+Guía para desplegar la app sei-deploy (panel Filament /admin) en el servidor:
+- Primer deploy manual (prerequisitos, `.env`, permisos, procesos persistentes)
+- Integración con nginx (vhost completo, websockets Reverb)
+- Pipeline automático (GitHub Actions + self-deploy)
+- Verificación post-deploy
 - Troubleshooting común
 
 ### [github-workflow-template.yml](./github-workflow-template.yml)
