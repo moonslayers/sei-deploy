@@ -55,10 +55,6 @@ Para errores comunes de despliegue, consulta la sección de **[Preguntas Frecuen
     GIT_USER_NAME=Deploy Bot
     GIT_USER_EMAIL=deploy@server.com
 
-    # Backends a actualizar automáticamente
-    # Formato: usuario/repo-name (ej: moonslayers/sagem-backend)
-    BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
-
     # Llave pública RSA (codificada en base64)
     PUBLIC_KEY=LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K...
     ```

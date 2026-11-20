@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Backend;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -66,7 +67,7 @@ class BackendService
 
         $repoUrl = $this->getRepoUrlWithCredentials($repoFullName);
         $workingDir = $repoPath;
-        $fullCommand = "cd {$workingDir} && git pull {$repoUrl} main 2>&1";
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && git pull '.escapeshellarg($repoUrl).' main 2>&1';
 
         exec($fullCommand, $output, $returnCode);
 
@@ -100,16 +101,38 @@ class BackendService
 
     protected function getMigrateCommand(string $repoFullName): string
     {
-        $commands = config('sei.backend_commands', []);
+        $backend = Backend::where('repo', $repoFullName)->first();
 
-        return $commands[$repoFullName] ?? 'migrate --force';
+        if ($backend && ! empty($backend->migrate_command)) {
+            return $backend->migrate_command;
+        }
+
+        return 'migrate --force';
+    }
+
+    protected function getDeployScript(string $repoFullName): string
+    {
+        $backend = Backend::where('repo', $repoFullName)->first();
+
+        if ($backend && ! empty($backend->script)) {
+            return $backend->script;
+        }
+
+        $templatePath = base_path('scripts/deploy-backend.sh');
+
+        if (! is_file($templatePath)) {
+            throw new \RuntimeException(
+                "Deploy template missing: {$templatePath} (required by backend {$repoFullName})"
+            );
+        }
+
+        return (string) file_get_contents($templatePath);
     }
 
     private function executeArtisanCommands(string $backendPath, string $repoFullName, string $repoPath): array
     {
         Log::info('Executing deploy script for backend', ['path' => $backendPath]);
 
-        $scriptPath = base_path('scripts/deploy-backend.sh');
         $githubUser = $this->githubUser;
         $githubToken = $this->githubToken;
         $migrateCommand = $this->getMigrateCommand($repoFullName);
@@ -117,24 +140,40 @@ class BackendService
         Log::info("Using migrate command for {$repoFullName}", ['command' => $migrateCommand]);
 
         $escapedMigrateCommand = escapeshellarg($migrateCommand);
-        $command = "bash {$scriptPath} {$backendPath} {$githubUser} {$githubToken} {$repoFullName} {$repoPath} {$escapedMigrateCommand} 2>&1";
 
-        exec($command, $output, $returnCode);
+        $scriptContent = $this->getDeployScript($repoFullName);
+        $tempFile = tempnam(sys_get_temp_dir(), 'deploy-');
+        file_put_contents($tempFile, $scriptContent);
+        chmod($tempFile, 0755);
 
-        if ($returnCode !== 0) {
-            $errorOutput = implode("\n", $output);
-            Log::error('Deploy script failed', [
-                'output' => $errorOutput,
-                'return_code' => $returnCode,
-            ]);
-            throw new Exception("Deploy script failed: {$errorOutput}");
+        try {
+            $command = 'bash '.escapeshellarg($tempFile).' '
+                .escapeshellarg($backendPath).' '
+                .escapeshellarg($githubUser).' '
+                .escapeshellarg($githubToken).' '
+                .escapeshellarg($repoFullName).' '
+                .escapeshellarg($repoPath).' '
+                .$escapedMigrateCommand.' 2>&1';
+
+            exec($command, $output, $returnCode);
+
+            if ($returnCode !== 0) {
+                $errorOutput = implode("\n", $output);
+                Log::error('Deploy script failed', [
+                    'output' => $errorOutput,
+                    'return_code' => $returnCode,
+                ]);
+                throw new Exception("Deploy script failed: {$errorOutput}");
+            }
+
+            Log::info('Deploy script completed successfully', ['output' => $output]);
+
+            return [
+                'status' => 'success',
+                'output' => $output,
+            ];
+        } finally {
+            @unlink($tempFile);
         }
-
-        Log::info('Deploy script completed successfully', ['output' => $output]);
-
-        return [
-            'status' => 'success',
-            'output' => $output,
-        ];
     }
 }

@@ -28,7 +28,7 @@ El sistema permite actualizar automáticamente backends Laravel mediante webhook
 1. El servidor debe tener el repositorio del backend clonado
 2. El backend debe ser un proyecto Laravel funcional
 3. Debe tener las credenciales de GitHub configuradas (`GITHUB_USER` y `GITHUB_TOKEN`)
-4. El backend debe estar listado en la variable `BACKEND_PROJECTS`
+4. El backend debe estar registrado en la tabla `backends` (sembrada desde `config/sei.php`)
 
 ### En el Repositorio del Backend
 
@@ -93,14 +93,12 @@ Esto ejecutará: `php artisan migrate:fresh --seed`
 GITHUB_USER=moonslayers
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Backends to update automatically via webhook
-# Format: organization/backend-name (e.g., moonslayers/sagem-backend)
-# Located at ../backend-directory-name (same level as sei-deploy)
-BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
+# (La lista de backends ya no se configura aquí: vive en la tabla `backends`,
+# sembrada desde config/sei.php por la migración final 2026_01_21_000002_seed_backend_config.php.
+# Ver sección "Configuración en base de datos (iteración actual)" al final.)
 ```
 
 **Notas importantes:**
-- `BACKEND_PROJECTS` usa el formato completo: `organizacion/nombre-repo`
 - El directorio físico del backend es solo el nombre del repo (sin organización)
 - Ejemplo: `moonslayers/sagem-backend` → directorio `../sagem-backend`
 
@@ -181,7 +179,7 @@ env:
 ```
 
 **Importante:**
-- `BACKEND_NAME` debe coincidir exactamente con el valor en `BACKEND_PROJECTS` del .env de sei-deploy
+- `BACKEND_NAME` debe coincidir exactamente con el valor de `repo` en la tabla `backends`
 - Si el backend es `moonslayers/sagem-backend`, el workflow debe usar `moonslayers/sagem-backend`
 - El directorio físico debe ser `../sagem-backend`
 
@@ -292,10 +290,7 @@ Supongamos que queremos configurar el backend `sagem-backend`.
 
 ### En el servidor (sei-deploy)
 
-1. Editar `.env`:
-```env
-BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
-```
+1. (No hay que editar `.env`: los backends viven en la tabla `backends`. Alta manual: agregar a `config/sei.php` y correr `php artisan migrate`.)
 
 2. Verificar directorio:
 ```bash
@@ -383,10 +378,10 @@ php artisan migrate:status
 }
 ```
 
-**Causa:** El backend no está en la lista `BACKEND_PROJECTS` del .env.
+**Causa:** El backend no está registrado en la tabla `backends`.
 
 **Solución:**
-1. Verifica que el backend esté en `BACKEND_PROJECTS` en el formato correcto: `moonslayers/sagem-backend`
+1. Verifica que el backend esté registrado en `backends` (vía `config/sei.php` + migración) con `repo = moonslayers/sagem-backend`
 2. Recarga la configuración: `php artisan config:clear`
 3. Reinicia el servidor si es necesario
 
@@ -423,7 +418,7 @@ php artisan migrate:status
 **Causa:** El formato del repositorio es incorrecto o el repo no existe.
 
 **Solución:**
-1. Verifica el formato en `BACKEND_PROJECTS`: debe ser `moonslayers/sagem-backend`
+1. Verifica el valor de `repo` en `backends`: debe ser `moonslayers/sagem-backend`
 2. Verifica que el repo exista en GitHub
 3. Verifica que `GITHUB_USER` y `GITHUB_TOKEN` estén configurados correctamente
 4. Asegúrate de que el token tenga permisos de lectura del repo
@@ -538,3 +533,32 @@ chown -R www-data:www-data bootstrap/cache/
 - [Generación de Llaves RSA](./generacion-de-llaves.md)
 - [Ejemplos de Clientes](./ejemplos-clientes.md)
 - [WEBHOOK_USAGE.md](../WEBHOOK_USAGE.md) - Documentación técnica en inglés
+
+## Assets compilados
+
+El servidor requiere `node`/`npm` para backends con frontend compilado (Filament assets y bundle Vite). Los pasos son condicionales: solo se ejecutan si existe `vendor/filament` o `package.json`.
+
+## Configuración en base de datos (iteración actual)
+
+La configuración de backends y frontends ya no vive en `config/sei.php` como fuente de verdad: se almacena en las tablas `backends` y `frontends`. `config/sei.php` queda solo como entrada del seeder.
+
+### Siembra inicial
+
+```bash
+php artisan migrate:fresh --seed   # o php artisan migrate
+```
+
+El seeder (`BackendConfigSeeder`, invocado por la migración `2026_01_21_000002_seed_backend_config.php`) es idempotente (`updateOrCreate` por `repo`/`name`) y **nunca pisa** el campo `script` de un backend existente.
+
+### Alta de un nuevo backend (manual, hasta próxima iteración)
+
+1. Agrega el repo a `config/sei.php` (`backends`, y `backend_paths`/`backend_commands` si aplica).
+2. Clona el repo sibling en `../<basename>`.
+3. Configura el `.env` del backend.
+4. Ejecuta `php artisan migrate` (o `db:seed --class=BackendConfigSeeder`).
+
+### Scripts por repo
+
+- `Backend.script` null → se usa la plantilla compartida `scripts/deploy-backend.sh`.
+- Un script propio se guarda con historial/restauración en `deploy_script_versions`.
+- Editable desde el panel Filament `/admin` (recurso Backends).

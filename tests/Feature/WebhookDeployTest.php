@@ -19,6 +19,14 @@ class WebhookDeployTest extends TestCase
             ->once()
             ->ordered()
             ->andReturn(['Composer install successful']);
+        $gitServiceMock->shouldReceive('publishFilamentAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Filament assets published']);
+        $gitServiceMock->shouldReceive('buildFrontendAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Frontend assets built']);
         $gitServiceMock->shouldReceive('runMigrations')
             ->once()
             ->ordered()
@@ -142,6 +150,14 @@ class WebhookDeployTest extends TestCase
             ->once()
             ->ordered()
             ->andReturn(['Composer install successful']);
+        $gitServiceMock->shouldReceive('publishFilamentAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Filament assets published']);
+        $gitServiceMock->shouldReceive('buildFrontendAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Frontend assets built']);
         $gitServiceMock->shouldReceive('runMigrations')
             ->once()
             ->ordered()

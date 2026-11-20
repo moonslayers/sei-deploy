@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Backend;
 use App\Services\BackendService;
 use App\Services\GitService;
 use Illuminate\Http\JsonResponse;
@@ -61,10 +62,11 @@ class WebhookController extends Controller
 
             $output = $this->gitService->pullCompiledRepo();
 
-            $deployOutputs = $this->gitService->deployAllFrontends();
-
             if ($project !== null) {
+                $deployOutputs = [];
                 $deployOutputs[$project] = $this->gitService->deployToFrontend($project);
+            } else {
+                $deployOutputs = $this->gitService->deployAllFrontends();
             }
 
             return response()->json([
@@ -117,6 +119,10 @@ class WebhookController extends Controller
 
             $composerOutput = $this->gitService->installMainDependencies();
 
+            $filamentOutput = $this->gitService->publishFilamentAssets();
+
+            $frontendOutput = $this->gitService->buildFrontendAssets();
+
             $migrateOutput = $this->gitService->runMigrations();
 
             $compiledOutput = [];
@@ -143,6 +149,8 @@ class WebhookController extends Controller
                     'branch' => $branch,
                     'main_pull' => $output,
                     'composer_install' => $composerOutput,
+                    'filament_assets' => $filamentOutput,
+                    'frontend_build' => $frontendOutput,
                     'migrate' => $migrateOutput,
                     'compiled_update' => $compiledOutput,
                     'deployments' => $deployOutputs,
@@ -198,57 +206,28 @@ class WebhookController extends Controller
                 'timestamp' => now()->toIso8601String(),
             ]);
 
-            $backendList = config('sei.backends', []);
-
-            if (empty($backendList)) {
-                Log::error('No backends configured in config/sei.php');
-
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No backends configured',
-                    'error' => 'Backend list is empty in config/sei.php',
-                ], 500);
-            }
-
-            $matchedBackend = null;
-            $directoryName = null;
-
-            foreach ($backendList as $backend) {
-                if (str_ends_with($backend, '/'.$repoName) || $backend === $repoName) {
-                    $matchedBackend = $backend;
-                    $directoryName = basename($backend);
-                    break;
-                }
-            }
+            $matchedBackend = Backend::all()->first(function ($b) use ($repoName) {
+                return str_ends_with($b->repo, '/'.$repoName) || $b->repo === $repoName;
+            });
 
             if ($matchedBackend === null) {
-                Log::warning("Invalid backend repository: {$repoName}", [
-                    'configured_backends' => $backendList,
-                ]);
+                Log::warning("Invalid backend repository: {$repoName}");
 
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Invalid backend repository',
                     'error' => "Backend '{$repoName}' is not in the configured list",
-                    'configured_backends' => $backendList,
                 ], 400);
             }
 
-            $backendPaths = config('sei.backend_paths', []);
-            $directoryName = $backendPaths[$matchedBackend] ?? $directoryName;
-
-            $repoDirectoryName = $directoryName;
-            if (isset($backendPaths[$matchedBackend])) {
-                $repoDirectoryName = dirname($directoryName);
-            }
-
-            $backendPath = dirname(base_path()).DIRECTORY_SEPARATOR.$directoryName;
-            $repoPath = dirname(base_path()).DIRECTORY_SEPARATOR.$repoDirectoryName;
+            $backendPath = $matchedBackend->resolved_path;
+            $repoPath = $matchedBackend->path
+                ? dirname($backendPath)
+                : $backendPath;
 
             if (! is_dir($backendPath)) {
                 Log::error('Backend directory not found', [
-                    'backend' => $matchedBackend,
-                    'directory_name' => $directoryName,
+                    'backend' => $matchedBackend->repo,
                     'expected_path' => $backendPath,
                 ]);
 
@@ -259,7 +238,7 @@ class WebhookController extends Controller
                 ], 400);
             }
 
-            $result = $this->backendService->updateBackend($matchedBackend, $repoPath, $backendPath);
+            $result = $this->backendService->updateBackend($matchedBackend->repo, $repoPath, $backendPath);
 
             if ($result['status'] === 'error') {
                 return response()->json($result, 500);
@@ -270,7 +249,7 @@ class WebhookController extends Controller
                 'message' => 'Backend updated successfully',
                 'data' => [
                     'repository' => $matchedBackend,
-                    'directory' => $directoryName,
+                    'directory' => basename($backendPath),
                     'path' => $backendPath,
                     'results' => $result['results'],
                 ],

@@ -215,7 +215,7 @@ Actualiza automáticamente un backend Laravel específico ejecutando la siguient
 - Actualizar cache de rutas y configuración después de cambios
 
 **Requisitos:**
-- El backend debe estar configurado en la variable `BACKEND_PROJECTS` del `.env` de sei-deploy en formato `organizacion/repo-name`
+- El backend debe estar registrado en la tabla `backends` de sei-deploy (sembrada desde `config/sei.php` vía la última migración)
 - El directorio del backend debe existir en el mismo nivel que `sei-deploy` (ej: `../sagem-backend`)
 - El nombre del directorio físico es solo el nombre del repo (sin la organización)
 - El backend debe ser un proyecto Laravel functional
@@ -313,13 +313,8 @@ curl -X POST http://tu-servicio.com/api/webhook/sagem-backend \
 }
 ```
 
-**Configuración en `.env` de sei-deploy:**
-```env
-# Backends a actualizar automáticamente vía webhook
-# Formato: organizacion/repo-name
-# Ubicados en ../repo-name (mismo nivel que sei-deploy)
-BACKEND_PROJECTS=moonslayers/cef-backend,moonslayers/pmr-backend,moonslayers/sagem-backend,moonslayers/sidi-backend
-```
+**Configuración en sei-deploy:**
+Los backends se registran en la tabla `backends` (fuente de verdad), sembrada desde `config/sei.php` vía la última migración. El alta de un backend nuevo sigue siendo manual: editar `config/sei.php` (y `backend_paths`/`backend_commands` si aplica) y ejecutar `php artisan migrate`.
 
 **Estructura de directorios requerida:**
 ```
@@ -695,7 +690,7 @@ git config --global user.email deploy@server.com  # ❌ Esto causa el error
    sudo systemctl start apache2
    
    # Si usas php artisan serve (solo desarrollo)
-   php artisan serve --host=0.0.0.0 --port=8000
+   php artisan serve --host=0.0.0.0 --port=8019
    ```
 
 2. **Verificar que el puerto está abierto:**

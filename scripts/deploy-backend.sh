@@ -29,6 +29,17 @@ echo "Iniciando deploy del backend..."
 echo "Instalando dependencias de Composer..."
 composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader || exit 1
 
+if [ -d "vendor/filament" ]; then
+    echo "Publicando assets de Filament..."
+    php artisan filament:assets || exit 1
+fi
+
+if [ -f "package.json" ]; then
+    echo "Compilando assets frontend (npm)..."
+    npm ci || exit 1
+    npm run build || exit 1
+fi
+
 echo "Limpiando cache..."
 php artisan cache:clear || exit 1
 php artisan config:clear || exit 1

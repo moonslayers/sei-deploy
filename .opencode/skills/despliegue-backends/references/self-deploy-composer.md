@@ -3,7 +3,7 @@
 ## Modelo mental: dos caminos de deploy
 
 - **Backends hermanos** (`../<repo>`): webhook → `BackendService` → `scripts/deploy-backend.sh`, que corre `composer install` en el directorio del backend. Ver [architecture.md](architecture.md).
-- **sei-deploy mismo**: `POST /api/webhook/deploy` → `WebhookController::updateDeploy()` → `GitService::pullMainRepo()` (git pull de main en `base_path()`) → `GitService::installMainDependencies()` (`composer install` en `base_path()`) → rsync de frontends compilados.
+- **sei-deploy mismo**: `POST /api/webhook/deploy` → `WebhookController::updateDeploy()` → `GitService::pullMainRepo()` (git pull de main en `base_path()`) → `GitService::installMainDependencies()` (`composer install` en `base_path()`) → `GitService::runMigrations()` (`php artisan migrate --force` en `base_path()`) → rsync de frontends compilados.
 
 El self-deploy ejecuta **el código que está en disco al momento del request**: el handler que procesa un webhook es la versión anterior al pull que ese mismo webhook dispara.
 
@@ -12,6 +12,7 @@ El self-deploy ejecuta **el código que está en disco al momento del request**:
 - Comando: `composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader` en `base_path()`.
 - Sin `--no-dev` (consistencia con deploy-backend.sh) y **nunca `composer update`** (el lock está trackeado; update es no determinista y el servidor tiene OOM documentados con composer).
 - Escaping obligatorio (`escapeshellarg`) — ver [shell-escaping.md](shell-escaping.md).
+- Tras composer install se corre `php artisan migrate --force` (mismo patrón de escaping y manejo de error); si una migración falla, el deploy completo falla con 500.
 - Si falla, lanza Exception → el webhook responde 500 → el step del GH Action falla (curl -f, exit 22).
 
 ## Limitación chicken-and-egg (causó caída de producción en la migración a Laravel 13)
