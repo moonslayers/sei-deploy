@@ -16,8 +16,10 @@ class BackendConfigSeederTest extends TestCase
     {
         $this->seed(BackendConfigSeeder::class);
         $firstCount = Backend::count();
-        $this->assertEquals(5, $firstCount);
-        $this->assertEquals(5, Frontend::count());
+        $expectedBackends = count(config('sei.backends'));
+        $expectedFrontends = count(config('sei.frontends'));
+        $this->assertEquals($expectedBackends, $firstCount);
+        $this->assertEquals($expectedFrontends, Frontend::count());
 
         $backend = Backend::where('repo', 'moonslayers/vdin')->first();
         $backend->update(['script' => 'custom script']);
@@ -26,7 +28,7 @@ class BackendConfigSeederTest extends TestCase
         $this->seed(BackendConfigSeeder::class);
 
         $this->assertEquals($firstCount, Backend::count());
-        $this->assertEquals(5, Frontend::count());
+        $this->assertEquals($expectedFrontends, Frontend::count());
         $this->assertEquals('custom script', Backend::where('repo', 'moonslayers/vdin')->first()->script);
     }
 }

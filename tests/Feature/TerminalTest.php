@@ -199,6 +199,7 @@ class TerminalTest extends TestCase
             ->get('/terminal/00000000-0000-0000-0000-000000000000/output')
             ->assertStatus(404);
     }
+
     public function test_enter_carriage_return_reaches_service_intact(): void
     {
         $user = User::factory()->create();
