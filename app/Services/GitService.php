@@ -170,10 +170,10 @@ class GitService
     {
         $workingDir = $this->baseDir;
 
-        if (! file_exists($workingDir.'/package.json')) {
-            Log::info('No package.json, skipping npm build');
+        if (! config('sei.build_frontend_assets', true) || ! file_exists($workingDir.'/package.json')) {
+            Log::info('Frontend build skipped (disabled or no package.json)');
 
-            return ['Skipped: no package.json'];
+            return ['Skipped: frontend build disabled or no package.json'];
         }
 
         Log::info('Building frontend assets');

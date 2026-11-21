@@ -86,4 +86,14 @@ return [
         'impulsabc-admin',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Build Frontend Assets
+    |--------------------------------------------------------------------------
+    |
+    | Whether to run `npm ci && npm run build` during self-deploy.
+    |
+    */
+    'build_frontend_assets' => env('BUILD_FRONTEND_ASSETS', true),
+
 ];
