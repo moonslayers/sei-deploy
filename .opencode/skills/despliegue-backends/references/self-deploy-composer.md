@@ -3,7 +3,7 @@
 ## Modelo mental: dos caminos de deploy
 
 - **Backends hermanos** (`../<repo>`): webhook → `BackendService` → `scripts/deploy-backend.sh`, que corre `composer install` en el directorio del backend. Ver [architecture.md](architecture.md).
-- **sei-deploy mismo**: `POST /api/webhook/deploy` → `WebhookController::updateDeploy()` → `GitService::pullMainRepo()` (git pull de main en `base_path()`) → `GitService::installMainDependencies()` (`composer install` en `base_path()`) → `GitService::runMigrations()` (`php artisan migrate --force` en `base_path()`) → rsync de frontends compilados.
+- **sei-deploy mismo**: `POST /api/webhook/deploy` → `WebhookController::updateDeploy()` → `GitService::pullMainRepo()` (git pull de main en `base_path()`) → `GitService::installMainDependencies()` (`composer install` en `base_path()`) → `GitService::publishFilamentAssets()` (`php artisan filament:assets`) → `GitService::publishLivewireAssets()` (`php artisan livewire:publish --assets`) → `GitService::buildFrontendAssets()` (`npm ci && npm run build`) → `GitService::runMigrations()` (`php artisan migrate --force` en `base_path()`) → `GitService::pullCompiledRepo()` (git pull del repo compilado) → `GitService::deployAllFrontends()` (rsync de frontends compilados a `/var/www`).
 
 El self-deploy ejecuta **el código que está en disco al momento del request**: el handler que procesa un webhook es la versión anterior al pull que ese mismo webhook dispara.
 
@@ -33,6 +33,19 @@ Verificar con `php artisan --version`. Tras la reparación, los deploys siguient
 ## Trampa del lock y platform.php
 
 `composer.json` pinnea `config.platform.php = 8.3.0`. **Regenerar `composer.lock` siempre con el pin puesto.** Un lock generado en PHP más nuevo (ej: 8.5) resuelve Symfony 8.x (requiere PHP >= 8.4.1) y `composer install` falla en CI/servidor (PHP 8.3) con "Your lock file does not contain a compatible set of packages". Síntoma: el step "Install Composer dependencies" del CI falla en ~1s.
+
+## Gotcha: vistas Blade compiladas obsoletas (view:clear NO está en el pipeline)
+
+El pipeline de self-deploy **no ejecuta `php artisan view:clear`**. Laravel recompila vistas Blade por mtime, pero en el servidor con opcache/`validate_timestamps` desactivado o en despliegues que preservan mtimes, las vistas compiladas pueden quedar obsoletas tras un deploy. Síntoma típico: features que leen config inyectada en blades (p.ej. la consola de terminal) se rompen sin error de servidor (se sirve JS/config viejo).
+
+Workaround: tras un deploy que cambie vistas Blade, correr manualmente en el servidor:
+
+```bash
+cd <ruta-sei-deploy>
+php artisan view:clear
+```
+
+**Nota:** añadir `view:clear` al pipeline está pendiente — no asumir que ya está.
 
 ## Mecánica del GH Action de deploy
 
