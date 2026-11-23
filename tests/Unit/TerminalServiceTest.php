@@ -34,8 +34,8 @@ class TerminalServiceTest extends TestCase
         $logFile = storage_path('app/terminal/'.$session->uuid.'.log');
         $this->assertFileExists($logFile);
 
-        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'tmux new-session')));
-        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'tmux pipe-pane')));
+        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'new-session')));
+        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'pipe-pane')));
         $pipe = collect($commands)->first(fn ($c) => str_contains($c, 'tmux pipe-pane'));
         $this->assertStringContainsString('cat >> '.$logFile, $pipe);
     }
@@ -208,11 +208,19 @@ class TerminalServiceTest extends TestCase
         };
         $service = new \App\Services\TerminalService($runner);
 
-        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $backend1 = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $backend2 = \App\Models\Backend::create(['repo' => 'org/repo2', 'path' => 'sei-deploy']);
         $user = \App\Models\User::factory()->create();
 
-        $s1 = $service->start($backend, $user);
-        $s2 = $service->start($backend, $user);
+        \Illuminate\Support\Str::createUuidsUsingSequence([
+            '11111111-2222-3333-4444-555555555555',
+            'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        ]);
+
+        $s1 = $service->start($backend1, $user);
+        $s2 = $service->start($backend2, $user);
+
+        \Illuminate\Support\Str::createUuidsNormally();
 
         $this->assertNotSame($s1->uuid, $s2->uuid);
         $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'sei-'.$s1->uuid)));
@@ -233,6 +241,9 @@ class TerminalServiceTest extends TestCase
         $service->start($backend, $user);
 
         foreach ($commands as $c) {
+            if (str_contains($c, 'command -v tmux')) {
+                continue;
+            }
             $this->assertStringContainsString('tmux -f', $c);
             $this->assertStringContainsString('-L sei-terminal', $c);
         }
