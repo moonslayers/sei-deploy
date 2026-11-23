@@ -6,6 +6,10 @@
         window.__terminalConfig = {
             backendId: {{ $backend->id }},
             startUrl: "{{ route('terminal.start', $backend) }}",
+            outputUrl: "{{ route('terminal.output', ['session' => '__UUID__']) }}",
+            inputUrl: "{{ route('terminal.write', ['session' => '__UUID__']) }}",
+            resizeUrl: "{{ route('terminal.resize', ['session' => '__UUID__']) }}",
+            endUrl: "{{ route('terminal.end', ['session' => '__UUID__']) }}",
             csrfToken: "{{ csrf_token() }}",
             sessionId: null,
         };

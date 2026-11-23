@@ -48,7 +48,7 @@ async function start() {
     setInterval(async () => {
         if (!sessionId) return;
         try {
-            const r = await fetch(`/terminal/${sessionId}/output?offset=${clientOffset}`, {
+            const r = await fetch(cfg.outputUrl.replace('__UUID__', sessionId) + `?offset=${clientOffset}`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin',
             });
@@ -68,7 +68,7 @@ async function start() {
 
 term.onData((data) => {
     if (!sessionId) return;
-    fetch(`/terminal/${sessionId}/input`, {
+    fetch(cfg.inputUrl.replace('__UUID__', sessionId), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ term.onData((data) => {
 
 term.onResize(({ cols, rows }) => {
     if (!sessionId) return;
-    fetch(`/terminal/${sessionId}/resize`, {
+    fetch(cfg.resizeUrl.replace('__UUID__', sessionId), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ term.onResize(({ cols, rows }) => {
 
 function end() {
     if (!sessionId) return;
-    fetch(`/terminal/${sessionId}`, {
+    fetch(cfg.endUrl.replace('__UUID__', sessionId), {
         method: 'DELETE',
         headers: {
             'X-CSRF-TOKEN': cfg.csrfToken,
