@@ -75,11 +75,39 @@ class TerminalService
         return $conf;
     }
 
+    /**
+     * Env vars inherited from the php-fpm parent (sei-deploy) that must never
+     * leak into tmux panes, otherwise artisan of sibling backends resolves the
+     * wrong DB/cache/queue/session config. Keep PATH/HOME/TERM/TMUX untouched.
+     *
+     * NOTE: the contaminated tmux server already running in prod must be killed
+     * once with `tmux -L sei-terminal kill-server` so a clean server is born;
+     * the `env -u` below applies from the very first `new-session`.
+     */
+    public const SANITIZED_ENV_VARS = [
+        'DB_CONNECTION', 'DB_DATABASE', 'DB_HOST', 'DB_PORT', 'DB_USERNAME',
+        'DB_PASSWORD', 'DB_URL',
+        'APP_ENV', 'APP_KEY',
+        'CACHE_DRIVER', 'CACHE_STORE',
+        'QUEUE_CONNECTION',
+        'SESSION_DRIVER',
+        'REDIS_HOST', 'REDIS_PASSWORD', 'REDIS_PORT', 'REDIS_CLIENT', 'REDIS_DB', 'REDIS_CACHE_DB',
+        'MEMCACHED_HOST', 'MEMCACHED_PORT', 'MEMCACHED_USERNAME', 'MEMCACHED_PASSWORD', 'MEMCACHED_PERSISTENT_ID',
+    ];
+
+    protected function envSanitizePrefix(): string
+    {
+        return 'env '.implode(' ', array_map(
+            static fn (string $v): string => '-u '.$v,
+            self::SANITIZED_ENV_VARS
+        )).' ';
+    }
+
     protected function tmuxPrefix(): string
     {
         $conf = escapeshellarg($this->ensureConf());
 
-        return 'tmux -f '.$conf.' -L '.escapeshellarg($this->socketName());
+        return $this->envSanitizePrefix().'tmux -f '.$conf.' -L '.escapeshellarg($this->socketName());
     }
 
     public function start(Backend $backend, User $user): TerminalSession
@@ -220,7 +248,8 @@ class TerminalService
         $name = $session->tmux_session ?: 'sei-'.$session->uuid;
         $conf = storage_path('app/terminal'.DIRECTORY_SEPARATOR.'tmux.conf');
         $socket = (string) config('terminal.socket', 'sei-terminal');
-        $cmd = 'tmux -f '.escapeshellarg($conf).' -L '.escapeshellarg($socket).' has-session -t '.escapeshellarg($name).' 2>/dev/null';
+        $vars = implode(' ', array_map(static fn (string $v): string => '-u '.$v, self::SANITIZED_ENV_VARS));
+        $cmd = 'env '.$vars.' tmux -f '.escapeshellarg($conf).' -L '.escapeshellarg($socket).' has-session -t '.escapeshellarg($name).' 2>/dev/null';
         $rc = 1;
         exec($cmd, $output, $rc);
 
