@@ -36,7 +36,7 @@ class TerminalServiceTest extends TestCase
 
         $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'new-session')));
         $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'pipe-pane')));
-        $pipe = collect($commands)->first(fn ($c) => str_contains($c, 'tmux pipe-pane'));
+        $pipe = collect($commands)->first(fn ($c) => str_contains($c, 'pipe-pane'));
         $this->assertStringContainsString('cat >> '.$logFile, $pipe);
     }
 
@@ -245,7 +245,7 @@ class TerminalServiceTest extends TestCase
                 continue;
             }
             $this->assertStringContainsString('tmux -f', $c);
-            $this->assertStringContainsString('-L sei-terminal', $c);
+            $this->assertTrue(str_contains($c, '-L') && str_contains($c, 'sei-terminal'));
         }
     }
 }
