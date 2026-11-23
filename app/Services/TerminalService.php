@@ -2,11 +2,9 @@
 
 namespace App\Services;
 
-use App\Jobs\PollTerminalOutput;
 use App\Models\Backend;
 use App\Models\TerminalSession;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -117,7 +115,6 @@ class TerminalService
             @file_put_contents($logFile, $capture, FILE_APPEND);
         }
 
-        PollTerminalOutput::dispatch($session->id);
         $session->update(['last_activity_at' => now()]);
 
         return $session;
@@ -145,10 +142,6 @@ class TerminalService
 
         $session->update(['last_activity_at' => now()]);
 
-        // Atomically claim the poller slot; only dispatch when no poller is alive.
-        if (Cache::add('terminal-poller-'.$session->id, true, PollTerminalOutput::LOCK_TTL_SECONDS)) {
-            PollTerminalOutput::dispatch($session->id);
-        }
     }
 
     public function resize(TerminalSession $session, int $cols, int $rows): void

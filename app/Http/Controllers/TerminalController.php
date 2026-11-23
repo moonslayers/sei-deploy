@@ -53,6 +53,8 @@ class TerminalController extends Controller
     {
         abort_unless($session->user_id === $request->user()->id, 403);
 
+        $session->update(['last_activity_at' => now()]);
+
         $offset = max(0, (int) $request->query('offset', 0));
         $logFile = storage_path('app/terminal'.DIRECTORY_SEPARATOR.$session->uuid.'.log');
 

@@ -1,4 +1,3 @@
-import './echo.js';
 import { Terminal } from '../vendor/xterm-6.0.0.mjs';
 import { FitAddon } from '../vendor/addon-fit-0.11.0.mjs';
 
@@ -46,45 +45,25 @@ async function start() {
     sessionId = data.session;
 
     let clientOffset = 0;
-    try {
-        const replay = await fetch(`/terminal/${sessionId}/output?offset=0`, {
-            headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin',
-        });
-        if (replay.ok) {
-            const r = await replay.json();
-            if (r && typeof r.output === 'string' && r.output !== '') {
-                term.write(r.output);
+    setInterval(async () => {
+        if (!sessionId) return;
+        try {
+            const r = await fetch(`/terminal/${sessionId}/output?offset=${clientOffset}`, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!r.ok) return;
+            const data = await r.json();
+            if (data && typeof data.output === 'string' && data.output !== '') {
+                term.write(data.output);
             }
-            clientOffset = (r && typeof r.offset === 'number') ? r.offset : clientOffset;
-        }
-    } catch (e) {
-        console.error('terminal replay failed', e);
-    }
-
-    const channel = window.Echo.private(`terminal.${sessionId}`);
-    channel.subscribed(() => {
-    });
-    channel.error((err) => {
-        term.write(`\r\n[error] subscription failed: ${JSON.stringify(err)}\r\n`);
-    });
-    channel.listen('.terminal.output', (e) => {
-        const chunk = e.output ?? e.data ?? '';
-        const evOffset = (typeof e.offset === 'number') ? e.offset : null;
-        if (evOffset !== null) {
-            if (evOffset < clientOffset) {
-                const overlap = clientOffset - evOffset;
-                if (overlap >= chunk.length) return;
-                term.write(chunk.slice(overlap));
-                clientOffset = evOffset + chunk.length;
-                return;
+            if (data && typeof data.offset === 'number') {
+                clientOffset = data.offset;
             }
-            term.write(chunk);
-            clientOffset = evOffset + chunk.length;
-        } else {
-            term.write(chunk);
+        } catch (e) {
+            console.error('terminal poll failed', e);
         }
-    });
+    }, 500);
 }
 
 term.onData((data) => {
