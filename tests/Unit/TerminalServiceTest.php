@@ -133,4 +133,108 @@ class TerminalServiceTest extends TestCase
             }))
             ->once();
     }
+
+    // appended
+    public function test_conf_absent_is_created(): void
+    {
+        $conf = storage_path('app/terminal/tmux.conf');
+        @unlink($conf);
+
+        $commands = [];
+        $runner = function (string $command) use (&$commands): array {
+            $commands[] = $command;
+            return [0, ''];
+        };
+        $service = new \App\Services\TerminalService($runner);
+
+        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = \App\Models\User::factory()->create();
+
+        $service->start($backend, $user);
+
+        $this->assertFileExists($conf);
+        $this->assertStringContainsString('set -g default-shell /bin/bash', (string) file_get_contents($conf));
+    }
+
+    public function test_is_alive_false_when_closed(): void
+    {
+        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = \App\Models\User::factory()->create();
+        $session = \App\Models\TerminalSession::create([
+            'uuid' => '99999999-aaaa-bbbb-cccc-dddddddddddd',
+            'backend_id' => $backend->id,
+            'user_id' => $user->id,
+            'closed_at' => now(),
+        ]);
+
+        $this->assertFalse(\App\Services\TerminalService::isAlive($session));
+    }
+    public function test_stale_session_killed_before_new_session(): void
+    {
+        $commands = [];
+        $runner = function (string $command) use (&$commands): array {
+            $commands[] = $command;
+            return [0, ''];
+        };
+        $service = new \App\Services\TerminalService($runner);
+
+        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = \App\Models\User::factory()->create();
+
+        $session = $service->start($backend, $user);
+        $name = 'sei-'.$session->uuid;
+
+        $killIdx = null;
+        $newIdx = null;
+        foreach ($commands as $i => $c) {
+            if (str_contains($c, 'kill-session') && str_contains($c, $name)) {
+                $killIdx = $i;
+            }
+            if (str_contains($c, 'new-session') && str_contains($c, $name)) {
+                $newIdx = $i;
+            }
+        }
+        $this->assertNotNull($killIdx);
+        $this->assertNotNull($newIdx);
+        $this->assertLessThan($newIdx, $killIdx);
+    }
+
+    public function test_multi_session_names_isolated(): void
+    {
+        $commands = [];
+        $runner = function (string $command) use (&$commands): array {
+            $commands[] = $command;
+            return [0, ''];
+        };
+        $service = new \App\Services\TerminalService($runner);
+
+        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = \App\Models\User::factory()->create();
+
+        $s1 = $service->start($backend, $user);
+        $s2 = $service->start($backend, $user);
+
+        $this->assertNotSame($s1->uuid, $s2->uuid);
+        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'sei-'.$s1->uuid)));
+        $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'sei-'.$s2->uuid)));
+    }
+
+    public function test_tmux_prefix_present_in_all_commands(): void
+    {
+        $commands = [];
+        $runner = function (string $command) use (&$commands): array {
+            $commands[] = $command;
+            return [0, ''];
+        };
+        $service = new \App\Services\TerminalService($runner);
+
+        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = \App\Models\User::factory()->create();
+        $service->start($backend, $user);
+
+        foreach ($commands as $c) {
+            $this->assertStringContainsString('tmux -f', $c);
+            $this->assertStringContainsString('-L sei-terminal', $c);
+        }
+    }
 }
