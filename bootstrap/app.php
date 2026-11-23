@@ -13,10 +13,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withBroadcasting(
-        __DIR__.'/../routes/channels.php',
-        ['middleware' => ['web']]
-    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'verify.webhook.signature' => VerifyWebhookSignature::class,
