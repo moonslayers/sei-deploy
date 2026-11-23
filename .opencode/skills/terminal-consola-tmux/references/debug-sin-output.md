@@ -11,6 +11,13 @@
      - 200 con `{output:""}` → el server no vuelca salida al log: revisar `storage/logs/laravel.log` (warnings de TerminalService), permisos de `storage/app/terminal` para el usuario web, `tmux -V`, `tmux ls` (existe `sei-<uuid>`?).
      - 403 → sesión de otro usuario/auth.
      - 404/500 → rutas/boot (`route:list --path=terminal`).
-3. En el servidor:
-   - `view:clear`, `ls -la storage/app/terminal`, usuario de php-fpm, `tmux -V`, `tail` de `laravel.log`.
-4. view-source: `__terminalConfig` debe incluir `outputUrl`/`inputUrl`/`resizeUrl`/`endUrl`.
+3. En el servidor (como www-data, NO como uguess):
+   - `sudo -H -u www-data tmux -V`
+   - `sudo -H -u www-data tmux ls` (socket por UID: `/tmp/tmux-33`; `Permission denied` si lo corres como uguess es esperado).
+   - `sudo -H -u www-data tmux capture-pane -pt <sei-uuid>` para ver si el pane tiene output.
+   - `view:clear`, `ls -la storage/app/terminal`, `tail` de `laravel.log`.
+4. Rama nueva: 200 con `{output:""}` + sesión tmux existe pero `capture-pane` vacío + log 0 bytes:
+   - Causa probable: `default-shell` = `/usr/sbin/nologin` mata el server tmux al arrancar → sesión "OK pero no server".
+   - Validar con conf custom: `sudo -H -u www-data tmux -f /tmp/tmux-www.conf -L wwwtest new-session -d 'echo hi'` y capturar pane; si sale output, confirma nologin.
+   - Fix en curso (Tarea 1): `set -g default-shell /bin/bash` en conf aislada `storage/app/terminal/` + socket `-f/-L/-S` consistente. No pedir `chsh`.
+5. view-source: `__terminalConfig` debe incluir `outputUrl`/`inputUrl`/`resizeUrl`/`endUrl`.
