@@ -5,7 +5,7 @@ Laravel 13 / PHP ^8.3. Webhook-driven deploy server (pulls repos, runs `deploy-b
 ## Commands
 
 ```bash
-composer dev            # serve + queue:listen + pail + vite (concurrently, --kill-others)
+composer dev            # serve + pail + vite (concurrently, --kill-others); server on http://localhost:8019 (--port=8019, matches APP_URL)
 composer test           # artisan config:clear + artisan test
 php artisan test --filter=BackendServiceTest   # single suite; sqlite :memory:, no external DB
 php artisan filament:assets                 # required after composer install/update and every deploy (Filament UI assets)
@@ -32,7 +32,7 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 - Shell escaping: `migrate` commands contain spaces (`migrate:fresh --seed`); always pass via `escapeshellarg()` into `exec()`/`deploy-backend.sh $6`. Never interpolate new `exec("cd ...")` args unescaped (`BackendService`, `GitService` already do this unsafely elsewhere — don't copy).
 - Webhook auth: raw body signed RSA-2048/SHA256 + base64, header `X-Webhook-Signature` (or `signature` body field); JSON must include fresh `timestamp` or 401. In tests sign with `Tests\Helpers\WebhookHelper::createSignedPayload()` (`tests/keys/private_test.pem`, `json_encode(..., JSON_UNESCAPED_SLASHES)`); `PUBLIC_KEY` (base64) comes from `.env.testing`.
 - `BackendService::getMigrateCommand()` is protected — tests use reflection + `Config::set('sei.backend_commands', [...])` (`tests/Unit/BackendServiceTest.php`).
-- Terminal: tmux binary required; sessions `sei-<uuid>` detached; poller `PollTerminalOutput` reanudable vía `output_offset`; límite 3 sesiones por usuario; reaper `terminal:reap` (TTL 30 min, huérfanas `sei-*`). Model mutators validate `Backend.path` (relativa, sin `..`, charset) and `Frontend.name` (charset). `GitService` escapa todos los args shell vía helper `escapeshellarg`.
+- Terminal: tmux binary required; sessions `sei-<uuid>` detached; poller HTTP cada 500 ms reanudable vía `?offset`; límite 3 sesiones por usuario; reaper `terminal:reap` (TTL 30 min, huérfanas `sei-*`). Model mutators validate `Backend.path` (relativa, sin `..`, charset) and `Frontend.name` (charset). `GitService` escapa todos los args shell vía helper `escapeshellarg`.
 
 ## Deployment Constraints
 
@@ -40,7 +40,7 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 
 - PHP ^8.3, Laravel 13, Composer, git, rsync, node/npm, tmux; sibling-dir layout `../<basename>` for backends and `../sei-compilados` for frontends; backend dirs must contain `.env`.
 - Webhook RSA-2048/SHA256 public key configured via `PUBLIC_KEY` (base64) in `.env`.
-- Reverb required for terminal panel: `php artisan reverb:start`; queue worker (database driver); env `REVERB_*`, `BROADCAST_CONNECTION=reverb`, `VITE_REVERB_*`.
+- Terminal console uses HTTP polling every 500 ms (fetch to route `terminal.output`); no Reverb, no broadcasting, no queue jobs for the terminal. tmux binary still required.
 
 ### Environment variables
 

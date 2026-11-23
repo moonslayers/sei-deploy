@@ -33,7 +33,7 @@ Guía completa para configurar actualización automática de backends Laravel:
 ### [despliegue-sei-deploy.md](./despliegue-sei-deploy.md)
 Guía para desplegar la app sei-deploy (panel Filament /admin) en el servidor:
 - Primer deploy manual (prerequisitos, `.env`, permisos, procesos persistentes)
-- Integración con nginx (vhost completo, websockets Reverb)
+- Integración con nginx (vhost completo, sin websockets)
 - Pipeline automático (GitHub Actions + self-deploy)
 - Verificación post-deploy
 - Troubleshooting común

@@ -4,7 +4,7 @@ Guía para desplegar la aplicación sei-deploy en el servidor, incluyendo integr
 
 ## Descripción General
 
-sei-deploy es una app Laravel 13 con panel Filament v4 en `/admin`. Recibe webhooks firmados (RSA-2048/SHA256) de los repositorios y ejecuta deploys: self-deploy de sí misma y deploys de backends/frontends hermanos. Requiere procesos persistentes (queue worker, Reverb) y tmux para la consola web.
+sei-deploy es una app Laravel 13 con panel Filament v4 en `/admin`. Recibe webhooks firmados (RSA-2048/SHA256) de los repositorios y ejecuta deploys: self-deploy de sí misma y deploys de backends/frontends hermanos. Requiere queue worker y tmux para la consola web.
 
 ## Requisitos Previos
 
@@ -46,15 +46,7 @@ Copiar `.env.example` a `.env` y ajustar. Variables obligatorias:
 | `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | MySQL. Mantener `PDO::MYSQL_ATTR_SSL_CA` (no usar `Pdo\Mysql`, incompatible con PHP 8.3) |
 | `SESSION_DRIVER` | `file` (no hay migración de sessions) |
 | `QUEUE_CONNECTION` | `database` |
-| `BROADCAST_CONNECTION` | `reverb` (el default del skeleton es `null`, cambiarlo) |
 | `CACHE_STORE` | `file` |
-| `REVERB_APP_ID` / `REVERB_APP_KEY` / `REVERB_APP_SECRET` | credenciales Reverb |
-| `REVERB_HOST` | dominio público (o IP) |
-| `REVERB_PORT` | `8080` (o el expuesto) |
-| `REVERB_SCHEME` | `https` si TLS termina en nginx |
-| `REVERB_SERVER_HOST` | `0.0.0.0` |
-| `REVERB_SERVER_PORT` | `8080` |
-| `VITE_REVERB_APP_KEY` / `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` | espejo de las anteriores (prefijo VITE_) |
 | `PUBLIC_KEY` | RSA pública en base64 (ver docs/generacion-de-llaves.md) |
 | `GITHUB_USER` / `GITHUB_TOKEN` | credenciales para pull de repos |
 | `GITHUB_REPO_MAIN` / `GITHUB_REPO_SUBMODULE` | repos de self-deploy y compilados |
@@ -62,7 +54,7 @@ Copiar `.env.example` a `.env` y ajustar. Variables obligatorias:
 | `ADMIN_EMAILS` | allowlist fail-closed del panel; sin ella nadie accede a `/admin` |
 | `MAIL_*` | según necesidad |
 
-> ⚠️ `BROADCAST_CONNECTION` por defecto es `log`/`null` en el skeleton; debe cambiarse a `reverb` para que la consola funcione.
+> ℹ️ La consola de terminal usa polling HTTP cada 500 ms; no requiere Reverb ni broadcasting.
 
 ### Paso 3: Instalar dependencias y preparar la app
 
@@ -95,11 +87,7 @@ Queue worker vía supervisor (ver docs/configuracion-queue-jobs.md):
 php artisan queue:work --daemon
 ```
 
-Reverb:
-
-```bash
-php artisan reverb:start
-```
+La consola de terminal usa polling HTTP cada 500 ms (sin Reverb).
 
 Cron para el reaper de terminales:
 
@@ -182,7 +170,7 @@ Checklist post-deploy:
 - [ ] `/admin/login` responde 200
 - [ ] Assets CSS/JS devuelven 200 (`/css/...`, `/js/...`)
 - [ ] Queue worker procesando (`php artisan queue:work` activo en supervisor)
-- [ ] Reverb arriba (`php artisan reverb:start`)
+- [ ] Consola web funciona por polling HTTP (sin Reverb)
 - [ ] Consola web funciona (abrir terminal en `/admin`)
 - [ ] `php artisan schedule:run` ejecuta `terminal:reap`
 
@@ -208,9 +196,9 @@ Checklist post-deploy:
 
 **Error:** Terminal web no muestra salida.
 
-**Causa:** Evento mal escuchado (broadcastAs vs listen).
+**Causa:** Polling HTTP a la ruta `terminal.output` fallando (tmux ausente, sesión inexistente o offset inválido).
 
-**Solución:** Verificar que el listener use el nombre correcto del evento broadcast. Si reaparece tras cambios, revisar `broadcastAs` vs `listen`.
+**Solución:** Verificar tmux instalado y que la sesión `sei-<uuid>` exista; revisar `storage/logs/laravel.log`.
 
 ### 500 al iniciar terminal
 
