@@ -34,12 +34,7 @@ if [ -d "vendor/filament" ]; then
     php artisan filament:assets || exit 1
 fi
 
-if [ -f "package.json" ]; then
-    echo "Compilando assets frontend (npm)..."
-    npm ci || exit 1
-    npm run build || exit 1
-fi
-
+echo "Frontend build skipped (backend, npm disabled)"
 echo "Limpiando cache..."
 php artisan cache:clear || exit 1
 php artisan config:clear || exit 1
