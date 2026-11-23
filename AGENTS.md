@@ -47,6 +47,13 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 - sei-deploy `.env` holds `PUBLIC_KEY` (base64) for webhook verification; each backend sibling repo holds its own `.env` (DB, app keys) required by `deploy-backend.sh`.
 - `.env.testing` used in CI; never commit secrets.
 
+### Subpath serving (prod corre bajo /sei/)
+- El proxy sei-apps mapea `/sei/*` → raíz del backend (`/`) y `/sei/api/*` → `/api/*`. Nunca agregues `location` a nivel raíz (`/livewire/`, `/app/`) para un solo backend: secuestra a los proyectos hermanos.
+- Nunca hardcodees paths absolutos (`/admin`, `/terminal/...`, `/livewire/...`) en Blade/JS: usa `route()`/`url()`/`asset()`, que respetan el prefijo vía `URL::useOrigin(config('app.url'))` en `AppServiceProvider`.
+- Livewire ignora `APP_URL` para su JS: publica sus assets (`php artisan livewire:publish --assets`, paso del self-deploy) y fija `app.asset_url` para que hereden el prefijo. Verifica con hard refresh + pestaña Network.
+- El path del panel Filament se queda en `admin` (nginx ya quita `/sei`); no lo renombres con prefijo.
+- `APP_URL` y `ASSET_URL` deben incluir la subruta (`https://host/sei`) + `php artisan config:clear` tras cambiarlas. `APP_DEBUG=false` en prod.
+
 ### Shell command safety
 
 - `migrate` commands contain spaces (`migrate:fresh --seed`); always pass via `escapeshellarg()` into `exec()`/`deploy-backend.sh $6`. Never interpolate new `exec("cd ...")` args unescaped.
