@@ -34,6 +34,12 @@ cp .env.testing .env && php artisan key:generate && php artisan migrate --force 
 - `BackendService::getMigrateCommand()` is protected — tests use reflection + `Config::set('sei.backend_commands', [...])` (`tests/Unit/BackendServiceTest.php`).
 - Terminal: tmux binary required; sessions `sei-<uuid>` detached; poller HTTP cada 500 ms reanudable vía `?offset`; límite 3 sesiones por usuario; reaper `terminal:reap` (TTL 30 min, huérfanas `sei-*`). Model mutators validate `Backend.path` (relativa, sin `..`, charset) and `Frontend.name` (charset). `GitService` escapa todos los args shell vía helper `escapeshellarg`.
 
+## Environment constraints
+- www-data nologin/HOME no-writable
+- tmux socket por UID + -L sei-terminal + -f en storage/
+- backends sin npm + XDG/chown
+- panes heredan env, sanear env -u
+
 ## Deployment Constraints
 
 ### Server prerequisites

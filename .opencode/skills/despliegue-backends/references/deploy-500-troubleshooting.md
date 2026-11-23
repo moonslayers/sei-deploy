@@ -32,6 +32,17 @@ Si el webhook usa `org/repo` (p.ej. `moonslayers/sagem-backend`) en la URL, reto
 
 Tras un `git pull` manual puede quedar caché de rutas vieja. Ejecutar `php artisan route:clear` y verificar con `php artisan route:list --path=api/webhook`.
 
+### Template vs Backend.script DB + deploy_script_versions restore
+- `Backend.script` null = shared template `scripts/deploy-backend.sh`; per-repo scripts supported with version history (`deploy_script_versions`).
+### npm solo sei-deploy
+- npm solo en self-deploy; backends no npm.
+### HOME/.npm/_logs no-writable
+- HOME/.npm/_logs no-writable → chown/XDG.
+### package:discover vía composer post-autoload
+- `php artisan package:discover` vía composer post-autoload.
+### deploy síncrono 500 con trace BackendService
+- deploy síncrono retorna 500 con trace BackendService.
+
 ### npm: command not found bajo php-fpm
 
 Aunque `npm` exista en shell, php-fpm corre con PATH mínimo. Crear symlinks en `/usr/bin` (p.ej. `ln -s $(which node) /usr/bin/node`, `ln -s $(which npm) /usr/bin/npm`) y verificar con `sudo -u www-data env -i PATH=/usr/bin:/bin node --version`.

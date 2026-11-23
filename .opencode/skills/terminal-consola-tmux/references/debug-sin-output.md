@@ -21,3 +21,6 @@
    - Validar con conf custom: `sudo -H -u www-data tmux -f /tmp/tmux-www.conf -L wwwtest new-session -d 'echo hi'` y capturar pane; si sale output, confirma nologin.
    - Fix en curso (Tarea 1): `set -g default-shell /bin/bash` en conf aislada `storage/app/terminal/` + socket `-f/-L/-S` consistente. No pedir `chsh`.
 5. view-source: `__terminalConfig` debe incluir `outputUrl`/`inputUrl`/`resizeUrl`/`endUrl`.
+6. Env heredado DB_*: tmux pane hereda env de php-fpm (DB_*). Sanear con `env -u DB_*` y `tmux kill-server -L sei-terminal` único.
+7. Permission denied /tmp/tmux-33: socket por UID; usar socket por UID (`-S`/`-L sei-terminal`) y conf `-f` en storage/.
+8. pipe-pane solo-warning: verificar effectiveUser antes de pipe-pane.
