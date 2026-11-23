@@ -181,6 +181,8 @@ env:
 **Importante:**
 - `BACKEND_NAME` debe coincidir exactamente con el valor de `repo` en la tabla `backends`
 - Si el backend es `moonslayers/sagem-backend`, el workflow debe usar `moonslayers/sagem-backend`
+
+**Nota (ruta del webhook):** la ruta `/api/webhook/{repo}` acepta un solo segmento: no acepta `/`. En la URL del webhook usar solo el basename (p.ej. `${BACKEND_NAME##*/}` -> `sagem-backend`). El org se resuelve por suffix match en DB. `BACKEND_NAME` se mantiene completo para payload/logs.
 - El directorio físico debe ser `../sagem-backend`
 
 #### 3.3 Verificar el workflow
@@ -236,7 +238,9 @@ jobs:
           PAYLOAD=$(cat payload.json)
           SIGNATURE="${{ steps.sign.outputs.signature }}"
           
-          RESPONSE=$(curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/${{ env.BACKEND_NAME }}" \
+          # La ruta /api/webhook/{repo} acepta un solo segmento: usar solo el basename
+          # (org/repo da 404). El org se resuelve por suffix match en DB.
+          RESPONSE=$(curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/${{ env.BACKEND_NAME##*/ }}" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Signature: ${SIGNATURE}" \
             -d "${PAYLOAD}" \

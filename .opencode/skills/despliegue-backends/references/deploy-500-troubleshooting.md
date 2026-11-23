@@ -23,3 +23,15 @@ No hay truncado intencional: es muerte abrupta del proceso. El script falla y el
 **Decisión actual**: deploy sin `--no-dev` para incluir faker.
 
 **Alternativa futura**: mover `fakerphp/faker` a `require` en vez de `require-dev`.
+
+### 404 en /api/webhook/{repo} con slash
+
+Si el webhook usa `org/repo` (p.ej. `moonslayers/sagem-backend`) en la URL, retorna 404 porque la ruta acepta un solo segmento. Usar solo el basename (`sagem-backend`); el org se resuelve por suffix match en DB. En bash: `${BACKEND_NAME##*/}`.
+
+### Caché de rutas vieja tras git pull manual
+
+Tras un `git pull` manual puede quedar caché de rutas vieja. Ejecutar `php artisan route:clear` y verificar con `php artisan route:list --path=api/webhook`.
+
+### npm: command not found bajo php-fpm
+
+Aunque `npm` exista en shell, php-fpm corre con PATH mínimo. Crear symlinks en `/usr/bin` (p.ej. `ln -s $(which node) /usr/bin/node`, `ln -s $(which npm) /usr/bin/npm`) y verificar con `sudo -u www-data env -i PATH=/usr/bin:/bin node --version`.

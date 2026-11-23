@@ -60,7 +60,9 @@ jobs:
           SIGNATURE="${{ steps.sign.outputs.signature }}"
 
           # Enviar request al backend específico
-          RESPONSE=$(curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/${{ env.BACKEND_NAME }}" \
+          # La ruta /api/webhook/{repo} acepta un solo segmento: usar solo el basename
+          # (org/repo da 404). BACKEND_NAME se mantiene completo para payload/logs.
+          RESPONSE=$(curl -X POST "${{ env.DEPLOY_SERVER_URL }}/api/webhook/${{ env.BACKEND_NAME##*/ }}" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Signature: ${SIGNATURE}" \
             -d "${PAYLOAD}" \
