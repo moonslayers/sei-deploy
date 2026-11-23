@@ -23,6 +23,10 @@ class WebhookDeployTest extends TestCase
             ->once()
             ->ordered()
             ->andReturn(['Filament assets published']);
+        $gitServiceMock->shouldReceive('publishLivewireAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Livewire assets published']);
         $gitServiceMock->shouldReceive('buildFrontendAssets')
             ->once()
             ->ordered()
@@ -154,6 +158,10 @@ class WebhookDeployTest extends TestCase
             ->once()
             ->ordered()
             ->andReturn(['Filament assets published']);
+        $gitServiceMock->shouldReceive('publishLivewireAssets')
+            ->once()
+            ->ordered()
+            ->andReturn(['Livewire assets published']);
         $gitServiceMock->shouldReceive('buildFrontendAssets')
             ->once()
             ->ordered()

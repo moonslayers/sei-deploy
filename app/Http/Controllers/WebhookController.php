@@ -121,6 +121,8 @@ class WebhookController extends Controller
 
             $filamentOutput = $this->gitService->publishFilamentAssets();
 
+            $livewireOutput = $this->gitService->publishLivewireAssets();
+
             $frontendOutput = $this->gitService->buildFrontendAssets();
 
             $migrateOutput = $this->gitService->runMigrations();
@@ -150,6 +152,7 @@ class WebhookController extends Controller
                     'main_pull' => $output,
                     'composer_install' => $composerOutput,
                     'filament_assets' => $filamentOutput,
+                    'livewire_assets' => $livewireOutput,
                     'frontend_build' => $frontendOutput,
                     'migrate' => $migrateOutput,
                     'compiled_update' => $compiledOutput,

@@ -166,6 +166,37 @@ class GitService
         return $output;
     }
 
+    public function publishLivewireAssets(): array
+    {
+        $workingDir = $this->baseDir;
+
+        if (! is_dir($workingDir.'/vendor/livewire')) {
+            Log::info('Livewire not installed, skipping livewire:publish');
+
+            return ['Skipped: Livewire not installed'];
+        }
+
+        Log::info('Publishing Livewire assets');
+
+        $command = 'php artisan livewire:publish --assets';
+        $fullCommand = 'cd '.escapeshellarg($workingDir).' && '.$command.' 2>&1';
+
+        exec($fullCommand, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $errorOutput = implode("\n", $output);
+            Log::error('Livewire assets publish failed', [
+                'output' => $errorOutput,
+                'return_code' => $returnCode,
+            ]);
+            throw new Exception("Livewire assets publish failed: {$errorOutput}");
+        }
+
+        Log::info('Livewire assets published successfully', ['output' => $output]);
+
+        return $output;
+    }
+
     public function buildFrontendAssets(): array
     {
         $workingDir = $this->baseDir;
