@@ -69,7 +69,7 @@ class TerminalService
         $conf = $logDir.DIRECTORY_SEPARATOR.(string) config('terminal.conf_filename', 'tmux.conf');
         if (! is_file($conf)) {
             $shell = (string) config('terminal.default_shell', '/bin/bash');
-            @file_put_contents($conf, "set -g default-shell ".$shell."\n");
+            @file_put_contents($conf, 'set -g default-shell '.$shell."\n");
         }
 
         return $conf;

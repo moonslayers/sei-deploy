@@ -6,3 +6,4 @@ return [
     'default_shell' => env('TERMINAL_DEFAULT_SHELL', '/bin/bash'),
     'conf_filename' => 'tmux.conf',
 ];
+

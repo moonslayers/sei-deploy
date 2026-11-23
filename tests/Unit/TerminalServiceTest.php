@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\TerminalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class TerminalServiceTest extends TestCase
@@ -145,10 +146,10 @@ class TerminalServiceTest extends TestCase
             $commands[] = $command;
             return [0, ''];
         };
-        $service = new \App\Services\TerminalService($runner);
+        $service = new TerminalService($runner);
 
-        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
-        $user = \App\Models\User::factory()->create();
+        $backend = Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = User::factory()->create();
 
         $service->start($backend, $user);
 
@@ -158,17 +159,18 @@ class TerminalServiceTest extends TestCase
 
     public function test_is_alive_false_when_closed(): void
     {
-        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
-        $user = \App\Models\User::factory()->create();
-        $session = \App\Models\TerminalSession::create([
+        $backend = Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = User::factory()->create();
+        $session = TerminalSession::create([
             'uuid' => '99999999-aaaa-bbbb-cccc-dddddddddddd',
             'backend_id' => $backend->id,
             'user_id' => $user->id,
             'closed_at' => now(),
         ]);
 
-        $this->assertFalse(\App\Services\TerminalService::isAlive($session));
+        $this->assertFalse(TerminalService::isAlive($session));
     }
+
     public function test_stale_session_killed_before_new_session(): void
     {
         $commands = [];
@@ -176,10 +178,10 @@ class TerminalServiceTest extends TestCase
             $commands[] = $command;
             return [0, ''];
         };
-        $service = new \App\Services\TerminalService($runner);
+        $service = new TerminalService($runner);
 
-        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
-        $user = \App\Models\User::factory()->create();
+        $backend = Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = User::factory()->create();
 
         $session = $service->start($backend, $user);
         $name = 'sei-'.$session->uuid;
@@ -206,13 +208,13 @@ class TerminalServiceTest extends TestCase
             $commands[] = $command;
             return [0, ''];
         };
-        $service = new \App\Services\TerminalService($runner);
+        $service = new TerminalService($runner);
 
-        $backend1 = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
-        $backend2 = \App\Models\Backend::create(['repo' => 'org/repo2', 'path' => 'sei-deploy']);
-        $user = \App\Models\User::factory()->create();
+        $backend1 = Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $backend2 = Backend::create(['repo' => 'org/repo2', 'path' => 'sei-deploy']);
+        $user = User::factory()->create();
 
-        \Illuminate\Support\Str::createUuidsUsingSequence([
+        Str::createUuidsUsingSequence([
             '11111111-2222-3333-4444-555555555555',
             'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
         ]);
@@ -220,7 +222,7 @@ class TerminalServiceTest extends TestCase
         $s1 = $service->start($backend1, $user);
         $s2 = $service->start($backend2, $user);
 
-        \Illuminate\Support\Str::createUuidsNormally();
+        Str::createUuidsNormally();
 
         $this->assertNotSame($s1->uuid, $s2->uuid);
         $this->assertTrue(collect($commands)->contains(fn ($c) => str_contains($c, 'sei-'.$s1->uuid)));
@@ -234,10 +236,10 @@ class TerminalServiceTest extends TestCase
             $commands[] = $command;
             return [0, ''];
         };
-        $service = new \App\Services\TerminalService($runner);
+        $service = new TerminalService($runner);
 
-        $backend = \App\Models\Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
-        $user = \App\Models\User::factory()->create();
+        $backend = Backend::create(['repo' => 'org/repo', 'path' => 'sei-deploy']);
+        $user = User::factory()->create();
         $service->start($backend, $user);
 
         foreach ($commands as $c) {
