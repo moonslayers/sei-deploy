@@ -18,6 +18,9 @@ if (typeof ResizeObserver !== 'undefined') {
 }
 
 let sessionId = null;
+let pollIntervalId = null;
+let pollFailures = 0;
+const POLL_FAILURE_LIMIT = 10;
 
 async function start() {
     const res = await fetch(cfg.startUrl, {
@@ -45,14 +48,14 @@ async function start() {
     sessionId = data.session;
 
     let clientOffset = 0;
-    setInterval(async () => {
+    pollIntervalId = setInterval(async () => {
         if (!sessionId) return;
         try {
             const r = await fetch(cfg.outputUrl.replace('__UUID__', sessionId) + `?offset=${clientOffset}`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin',
             });
-            if (!r.ok) return;
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             if (data && typeof data.output === 'string' && data.output !== '') {
                 term.write(data.output);
@@ -60,8 +63,15 @@ async function start() {
             if (data && typeof data.offset === 'number') {
                 clientOffset = data.offset;
             }
+            pollFailures = 0;
         } catch (e) {
             console.error('terminal poll failed', e);
+            pollFailures += 1;
+            if (pollFailures >= POLL_FAILURE_LIMIT) {
+                clearInterval(pollIntervalId);
+                pollIntervalId = null;
+                console.error('terminal polling stopped after repeated failures');
+            }
         }
     }, 500);
 }
@@ -103,6 +113,10 @@ term.onResize(({ cols, rows }) => {
 });
 
 function end() {
+    if (pollIntervalId !== null) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+    }
     if (!sessionId) return;
     fetch(cfg.endUrl.replace('__UUID__', sessionId), {
         method: 'DELETE',

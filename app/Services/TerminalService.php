@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Backend;
 use App\Models\TerminalSession;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -95,10 +96,22 @@ class TerminalService
 
         $logDir = storage_path('app/terminal');
         if (! is_dir($logDir)) {
-            @mkdir($logDir, 0775, true);
+            $created = @mkdir($logDir, 0775, true);
+            if (! $created && ! is_dir($logDir)) {
+                Log::warning('TerminalService: failed to create terminal log directory', [
+                    'log_dir' => $logDir,
+                    'user' => self::effectiveUser(),
+                ]);
+            }
         }
         $logFile = $logDir.DIRECTORY_SEPARATOR.$uuid.'.log';
-        @file_put_contents($logFile, '');
+        $written = @file_put_contents($logFile, '');
+        if ($written === false) {
+            Log::warning('TerminalService: failed to initialize terminal log file', [
+                'log_file' => $logFile,
+                'user' => self::effectiveUser(),
+            ]);
+        }
 
         [$rc] = $this->run('tmux new-session -d -s '.escapeshellarg($tmuxName).' -c '.escapeshellarg($resolved));
         if ($rc !== 0) {
@@ -107,12 +120,25 @@ class TerminalService
             throw new \RuntimeException('Failed to create tmux session.');
         }
 
-        $this->run('tmux pipe-pane -t '.escapeshellarg($tmuxName).' -o '.escapeshellarg('cat >> '.$logFile));
+        [$pipeRc] = $this->run('tmux pipe-pane -t '.escapeshellarg($tmuxName).' -o '.escapeshellarg('cat >> '.$logFile));
+        if ($pipeRc !== 0) {
+            Log::warning('TerminalService: failed to configure tmux pipe-pane', [
+                'tmux_session' => $tmuxName,
+                'log_file' => $logFile,
+                'user' => self::effectiveUser(),
+            ]);
+        }
 
         // Seed logfile with current pane content so terminal doesn't start empty.
         [$rc, $capture] = $this->run('tmux capture-pane -p -t '.escapeshellarg($tmuxName));
         if ($rc === 0 && $capture !== '') {
-            @file_put_contents($logFile, $capture, FILE_APPEND);
+            $appended = @file_put_contents($logFile, $capture, FILE_APPEND);
+            if ($appended === false) {
+                Log::warning('TerminalService: failed to seed terminal log file', [
+                    'log_file' => $logFile,
+                    'user' => self::effectiveUser(),
+                ]);
+            }
         }
 
         $session->update(['last_activity_at' => now()]);
@@ -161,5 +187,17 @@ class TerminalService
     public static function isAlive(TerminalSession $session): bool
     {
         return $session->closed_at === null;
+    }
+
+    protected static function effectiveUser(): string
+    {
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $info = posix_getpwuid(posix_geteuid());
+            if (is_array($info) && isset($info['name'])) {
+                return (string) $info['name'];
+            }
+        }
+
+        return get_current_user() ?: (string) getmyuid();
     }
 }
