@@ -2,45 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Events\TerminalOutputReceived;
-use App\Jobs\PollTerminalOutput;
 use App\Models\Backend;
 use App\Models\TerminalSession;
 use App\Models\User;
 use App\Services\TerminalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class TerminalTest extends TestCase
 {
     use RefreshDatabase;
-
-    public function test_channel_rejects_unauthenticated(): void
-    {
-        config(['broadcasting.default' => 'pusher']);
-        config(['broadcasting.connections.pusher' => ['driver' => 'pusher', 'key' => 'k', 'secret' => 's', 'app_id' => 'a', 'options' => []]]);
-
-        $owner = User::factory()->create();
-        $backend = Backend::create(['repo' => 'org/repo', 'path' => null]);
-        $session = TerminalSession::create([
-            'uuid' => '11111111-2222-3333-4444-555555555555',
-            'backend_id' => $backend->id,
-            'user_id' => $owner->id,
-        ]);
-
-        $channelName = 'private-terminal.'.$session->uuid;
-
-        $this->post('/broadcasting/auth', ['channel_name' => $channelName])
-            ->assertStatus(403);
-
-        $other = User::factory()->create();
-        $this->actingAs($other)
-            ->post('/broadcasting/auth', ['channel_name' => $channelName])
-            ->assertStatus(403);
-
-        // Owner authorization is covered by channel closure logic.
-    }
 
     public function test_write_resize_end_reject_non_owner(): void
     {
@@ -64,40 +35,6 @@ class TerminalTest extends TestCase
         $this->actingAs($other)
             ->delete('/terminal/'.$session->uuid)
             ->assertStatus(403);
-    }
-
-    public function test_job_dispatches_event(): void
-    {
-        Event::fake();
-        $user = User::factory()->create();
-        $backend = Backend::create(['repo' => 'org/repo', 'path' => null]);
-        $session = TerminalSession::create([
-            'uuid' => '11111111-2222-3333-4444-555555555555',
-            'backend_id' => $backend->id,
-            'user_id' => $user->id,
-        ]);
-
-        // Mock process registry to avoid real bash
-        $mock = $this->mock(TerminalService::class);
-        $mock->shouldReceive('run')->andReturn([1, '']);
-
-        // Directly call job; no tmux session -> marks closed, no crash.
-        (new PollTerminalOutput($session->id))->handle($mock);
-        $this->assertTrue(true);
-    }
-
-    public function test_terminal_output_event_broadcasts_private_channel(): void
-    {
-        $user = User::factory()->create();
-        $backend = Backend::create(['repo' => 'org/repo', 'path' => null]);
-        $session = TerminalSession::create([
-            'uuid' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-            'backend_id' => $backend->id,
-            'user_id' => $user->id,
-        ]);
-        $event = new TerminalOutputReceived($session, 'hi');
-        $channels = $event->broadcastOn();
-        $this->assertStringContainsString('terminal.'.$session->uuid, (string) $channels[0]);
     }
 
     public function test_non_admin_cannot_start_terminal(): void
@@ -220,5 +157,30 @@ class TerminalTest extends TestCase
         $this->actingAs($user)
             ->post('/terminal/'.$session->uuid.'/input', ['input' => "\r"])
             ->assertStatus(200);
+    }
+
+    public function test_output_endpoint_partial_offset_returns_new_bytes(): void
+    {
+        $owner = User::factory()->create();
+        $backend = Backend::create(['repo' => 'org/repo', 'path' => null]);
+        $session = TerminalSession::create([
+            'uuid' => '66666666-7777-8888-9999-aaaaaaaaaaaa',
+            'backend_id' => $backend->id,
+            'user_id' => $owner->id,
+        ]);
+
+        $dir = storage_path('app/terminal');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+        file_put_contents($dir.DIRECTORY_SEPARATOR.$session->uuid.'.log', 'hello output');
+
+        $res = $this->actingAs($owner)
+            ->get('/terminal/'.$session->uuid.'/output?offset=6')
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertSame('output', $res['output']);
+        $this->assertSame(12, $res['offset']);
     }
 }
