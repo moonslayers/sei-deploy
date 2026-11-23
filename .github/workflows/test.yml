@@ -6,11 +6,21 @@ on:
       - main
       - master
       - develop
+    paths-ignore:
+      - '.opencode/**'
+      - 'docs/**'
+      - '*.md'
+      - '**/*.md'
   pull_request:
     branches:
       - main
       - master
       - develop
+    paths-ignore:
+      - '.opencode/**'
+      - 'docs/**'
+      - '*.md'
+      - '**/*.md'
 
 jobs:
   test:
