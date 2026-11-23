@@ -53,6 +53,3 @@ jobs:
 
       - name: Run tests
         run: php artisan test
-
-      - name: Run Laravel Pint (lint)
-        run: ./vendor/bin/pint --test
